@@ -1,0 +1,5 @@
+{
+  "name": "GeoData Map Generator",
+  "description": "A powerful tool to generate interactive choropleth maps by linking GeoJSON boundaries with Excel/CSV data. Upload your map, connect your data, and visualize insights instantly.",
+  "requestFramePermissions": []
+}
