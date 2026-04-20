@@ -7,11 +7,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ── Server-side Gemini API key (never exposed to browser) ──────────────────
-const GEMINI_API_KEY = "AIzaSyA8kQUOO-B8yM3smRrRIAXrABVNmNuDpRg";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   // JSON parsing middleware
   app.use(express.json());
