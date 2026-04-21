@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, GeoJSON, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, GeoJSON, useMap, useMapEvents, ScaleControl } from "react-leaflet";
 import * as L from "leaflet";
 import * as XLSX from "xlsx";
 import html2canvas from "html2canvas";
@@ -124,7 +124,7 @@ function MapLabels({ geoData, mapping, labelProperty, excelData, labelSize, isLa
     const layer = L.geoJSON(geoData);
     layer.eachLayer((l: any) => {
       if (l.feature && l.getBounds) {
-        const key = String(l.feature.properties[mapping.geoKey]).toLowerCase().trim();
+        const key = normalizeKey(l.feature.properties[mapping.geoKey]);
         newCenters[key] = l.getBounds().getCenter();
       }
     });
@@ -136,8 +136,8 @@ function MapLabels({ geoData, mapping, labelProperty, excelData, labelSize, isLa
   return (
     <>
       {geoData.features.map((feature: any) => {
-        const key = String(feature.properties[mapping.geoKey]).toLowerCase().trim();
-        const excelRow = excelData.find((r: any) => String(r[mapping.excelKey]).toLowerCase().trim() === key);
+        const key = normalizeKey(feature.properties[mapping.geoKey]);
+        const excelRow = excelData.find((r: any) => normalizeKey(r[mapping.excelKey]) === key);
         const txt = excelRow?.[labelProperty] || feature.properties[labelProperty] || "";
         if (!txt) return null;
 
@@ -169,9 +169,56 @@ function MapLabels({ geoData, mapping, labelProperty, excelData, labelSize, isLa
   );
 }
 
+/* ── Stat.uz Indicator list ─────────────────────────────────────────────── */
+const STAT_INDICATORS: { id: string; label: string; unit: string }[] = [
+  // Tug'ilish / vafot / nikoh
+  { id: "223", label: "Tug'ilganlar soni (jami)",                   unit: "kishi" },
+  { id: "224", label: "Tug'ilganlar soni (qiz bolalar)",            unit: "kishi" },
+  { id: "225", label: "Tug'ilganlar soni (o'g'il bolalar)",         unit: "kishi" },
+  { id: "226", label: "Vafot etganlar soni (jami)",                 unit: "kishi" },
+  { id: "227", label: "Vafot etganlar (ayollar)",                   unit: "kishi" },
+  { id: "228", label: "Vafot etganlar (erkaklar)",                  unit: "kishi" },
+  { id: "229", label: "O'lim koeffitsienti (jami)",                 unit: "" },
+  { id: "241", label: "Tug'ilish koeffitsienti (jami)",             unit: "" },
+  { id: "243", label: "Tuzilgan nikohlar (jami)",                   unit: "ta" },
+  { id: "230", label: "Nikohdan ajralishlar (jami)",                unit: "ta" },
+  { id: "238", label: "Ko'chib kelganlar (jami)",                   unit: "kishi" },
+  { id: "239", label: "Ko'chib ketganlar (jami)",                   unit: "kishi" },
+  { id: "268", label: "Ko'chib kelganlar xorijdan",                 unit: "kishi" },
+  { id: "269", label: "Ko'chib ketganlar xorijga",                  unit: "kishi" },
+  { id: "295", label: "Tug'ilishda kutilayotgan umr davomiyligi",   unit: "yil" },
+  { id: "665", label: "Tug'ilishning yig'indi koeffitsienti",       unit: "" },
+  // Aholi soni (asosiy)
+  { id: "244", label: "Doimiy aholi (ayol)",                        unit: "ming kishi" },
+  { id: "245", label: "Doimiy aholi (erkak)",                       unit: "ming kishi" },
+  { id: "246", label: "Doimiy aholi (jami)",                        unit: "ming kishi" },
+  { id: "247", label: "Doimiy aholi (qishloq)",                     unit: "ming kishi" },
+  { id: "248", label: "Doimiy aholi (shahar)",                      unit: "ming kishi" },
+  { id: "236", label: "Aholi zichligi",                             unit: "kishi/km²" },
+  { id: "2835",label: "Mehnatga layoqatli yoshdagi aholi",          unit: "ming kishi" },
+  // Yosh guruhlari
+  { id: "561", label: "0–2 yoshdagi aholi",                         unit: "ming kishi" },
+  { id: "2838",label: "3–5 yoshdagi aholi",                         unit: "ming kishi" },
+  { id: "589", label: "6–7 yoshdagi aholi",                         unit: "ming kishi" },
+  { id: "600", label: "8–15 yoshdagi aholi",                        unit: "ming kishi" },
+  { id: "607", label: "16–17 yoshdagi aholi",                       unit: "ming kishi" },
+  { id: "617", label: "18–19 yoshdagi aholi",                       unit: "ming kishi" },
+  { id: "626", label: "20–24 yoshdagi aholi",                       unit: "ming kishi" },
+  { id: "632", label: "25–29 yoshdagi aholi",                       unit: "ming kishi" },
+  { id: "638", label: "30–34 yoshdagi aholi",                       unit: "ming kishi" },
+  { id: "643", label: "35–39 yoshdagi aholi",                       unit: "ming kishi" },
+  { id: "647", label: "40–49 yoshdagi aholi",                       unit: "ming kishi" },
+  { id: "650", label: "50–59 yoshdagi aholi",                       unit: "ming kishi" },
+  { id: "1190",label: "60–64 yoshdagi aholi",                       unit: "ming kishi" },
+  { id: "1191",label: "65+ yoshdagi aholi",                         unit: "ming kishi" },
+];
+
 /* ════════════════════════════════════════════════════════════════════════════
    MAIN APP
    ════════════════════════════════════════════════════════════════════════════ */
+
+const normalizeKey = (str: any) => String(str || "").toLowerCase().trim().replace(/['‘`ʼ]/g, "");
+
 export default function App() {
   /* state */
   const [geoData, setGeoData]               = useState<any>(null);
@@ -201,7 +248,10 @@ export default function App() {
   const [rightTab, setRightTab]             = useState<"attributes" | "info" | "chart">("attributes");
   const [searchQuery, setSearchQuery]       = useState<string>("");
   const [isLabelMode, setIsLabelMode]       = useState<boolean>(false);
+  const [layoutMode, setLayoutMode]         = useState<boolean>(false);
   const [labelPositions, setLabelPositions] = useState<Record<string, { lat: number; lng: number }>>({});
+  const [selectedIndicator, setSelectedIndicator] = useState<string>("246");
+  const [isFetchingApi, setIsFetchingApi]          = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
 
   /* ── File handlers ─────────────────────────────────────────────────────── */
@@ -242,17 +292,68 @@ export default function App() {
     reader.readAsArrayBuffer(file);
   };
 
+  const fetchApiData = async () => {
+    if (!selectedIndicator) return;
+    setIsFetchingApi(true);
+    const indicatorMeta = STAT_INDICATORS.find(i => i.id === selectedIndicator);
+    try {
+      // Use the server-side proxy to avoid CORS issues
+      const targetUrl = `https://api.siat.stat.uz/media/uploads/sdmx/sdmx_data_${selectedIndicator}.json`;
+      const res = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`);
+      if (!res.ok) throw new Error(`Server xatosi: ${res.status}`);
+      const json = await res.json();
+      if (json && json[0] && json[0].data) {
+        const data = json[0].data;
+        setExcelData(data);
+        if (data.length > 0) {
+          const cols = Object.keys(data[0]);
+          setExcelColumns(cols);
+          // Find last year column (numeric key like "2024")
+          const yearCols = cols.filter(c => /^\d{4}$/.test(c));
+          const lastYear = yearCols[yearCols.length - 1] || cols[cols.length - 1];
+          setMapping(prev => ({
+            ...prev,
+            excelKey: cols.includes("Klassifikator") ? "Klassifikator" : cols[0],
+            valueKey: lastYear,
+          }));
+          // Auto-fill unit from indicator metadata
+          if (indicatorMeta?.unit) setValueUnit(indicatorMeta.unit);
+          // Auto-fill map title
+          if (indicatorMeta?.label) setMapTitle(`${indicatorMeta.label} (${lastYear})`);
+        }
+      } else {
+        alert("Noto'g'ri ma'lumot formati. Ushbu indikator kodi uchun ma'lumot topilmadi.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert(`API dan ma'lumot yuklashda xatolik: ${e.message}`);
+    } finally {
+      setIsFetchingApi(false);
+    }
+  };
+
   /* ── Data ──────────────────────────────────────────────────────────────── */
   const dataLookup = useMemo(() => {
     const m = new Map<string, number>();
-    if (!mapping.excelKey || !mapping.valueKey) return m;
+    if (!mapping.excelKey || !mapping.valueKey || !geoData) return m;
+
+    // 1. Faqat GeoJSON da bor bo'lgan hududlarni yig'ib olamiz (O'zbekiston Respublikasi kabi umumiy summalarni chetlab o'tish uchun)
+    const validGeoKeys = new Set<string>();
+    geoData.features.forEach((f: any) => {
+      const k = normalizeKey(f.properties[mapping.geoKey]);
+      if (k) validGeoKeys.add(k);
+    });
+
+    // 2. Excel/API dan kelgan ma'lumotlarni faqat yaroqli hududlar uchun map'ga qo'shamiz
     excelData.forEach(row => {
-      const key = String(row[mapping.excelKey]).toLowerCase().trim();
+      const key = normalizeKey(row[mapping.excelKey]);
       const val = parseFloat(row[mapping.valueKey]);
-      if (!isNaN(val)) m.set(key, val);
+      if (!isNaN(val) && validGeoKeys.has(key)) {
+        m.set(key, val);
+      }
     });
     return m;
-  }, [excelData, mapping.excelKey, mapping.valueKey]);
+  }, [excelData, mapping.excelKey, mapping.valueKey, geoData, mapping.geoKey]);
 
   const stats = useMemo(() => {
     const vals = Array.from(dataLookup.values());
@@ -292,7 +393,7 @@ export default function App() {
   }, [stats, colorPalette, classificationType, numClasses, dataLookup]);
 
   const getStyle = useCallback((feature: any) => {
-    const key = String(feature.properties[mapping.geoKey]).toLowerCase().trim();
+    const key = normalizeKey(feature.properties[mapping.geoKey]);
     const val = dataLookup.get(key);
     return {
       fillColor: val !== undefined ? colorScale(val) : "#334155",
@@ -301,9 +402,9 @@ export default function App() {
   }, [dataLookup, mapping.geoKey, colorScale, borderWidth, fillOpacity]);
 
   const onEachFeature = (feature: any, layer: L.Layer) => {
-    const key = String(feature.properties[mapping.geoKey]).toLowerCase().trim();
+    const key = normalizeKey(feature.properties[mapping.geoKey]);
     const value = dataLookup.get(key);
-    const excelRow = excelData.find(r => String(r[mapping.excelKey]).toLowerCase().trim() === key);
+    const excelRow = excelData.find(r => normalizeKey(r[mapping.excelKey]) === key);
     const displayLabel = showAttributeKey && excelRow ? excelRow[showAttributeKey] : feature.properties[mapping.geoKey];
 
     // Tooltip is now handled separately by MapLabels component
@@ -324,6 +425,45 @@ export default function App() {
   };
 
   /* ── Legend ────────────────────────────────────────────────────────────── */
+  const downloadImage = async () => {
+    if (!mapRef.current) return;
+    setIsExporting(true);
+    await new Promise(r => setTimeout(r, 1000));
+    try {
+      const canvas = await html2canvas(mapRef.current, {
+        useCORS: true,
+        allowTaint: false,
+        scale: 2, // High resolution
+        logging: false,
+        backgroundColor: "#ffffff",
+        ignoreElements: (element) => {
+          return element.id === "pdf-toolbar" || element.id === "hover-title-bar";
+        },
+        onclone: (doc) => {
+          const s = doc.createElement("style");
+          s.innerHTML = `
+            * { color-scheme: light; text-shadow: none !important; }
+            .leaflet-control-zoom { display: none !important; }
+          `;
+          doc.head.appendChild(s);
+        }
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = imgData;
+      link.download = "geo_vizor_map.png";
+      link.click();
+    } catch (err) {
+      console.error(err);
+      alert("Rasmni saqlashda xatolik yuz berdi.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+
+
   const legendLabels = useMemo(() => {
     if (classificationType === "continuous") return [];
     const vals = Array.from(dataLookup.values());
@@ -351,7 +491,7 @@ export default function App() {
     const groupKey = showAttributeKey || mapping.excelKey;
     return Array.from(dataLookup.entries())
       .map(([key, val]) => {
-        const record = excelData.find(r => String(r[mapping.excelKey]).toLowerCase().trim() === key);
+        const record = excelData.find(r => normalizeKey(r[mapping.excelKey]) === key);
         const name = String(record?.[groupKey] || key);
         return { name, val, key, color: colorScale(val) };
       })
@@ -362,67 +502,7 @@ export default function App() {
     rankedData.filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
   , [rankedData, searchQuery]);
 
-  /* ── Image Export (PNG) ────────────────────────────────────────────────── */
-  const downloadImage = async () => {
-    if (!mapRef.current) return;
-    setIsExporting(true);
-    // Wait for all tiles to finish loading
-    await new Promise(r => setTimeout(r, 1000));
-    try {
-      const canvas = await html2canvas(mapRef.current, {
-        useCORS: true,
-        allowTaint: false,
-        scale: 2, // High resolution
-        logging: false,
-        backgroundColor: "#ffffff",
-        ignoreElements: (element) => {
-          return element.id === "pdf-toolbar" || element.id === "hover-title-bar";
-        },
-        onclone: (doc) => {
-          const s = doc.createElement("style");
-          s.innerHTML = `
-            * { color-scheme: light; text-shadow: none !important; }
-            .leaflet-control-zoom { display: none !important; }
-          `;
-          doc.head.appendChild(s);
-          
-          // Manually append the map title to the DOM so it shows up in PNG
-          const mapEl = doc.body.querySelector(".leaflet-container");
-          if (mapEl) {
-            const titleEl = doc.createElement("div");
-            titleEl.textContent = mapTitle || "GeoVizor Xaritasi";
-            titleEl.style.position = "absolute";
-            titleEl.style.top = "24px";
-            titleEl.style.left = "50%";
-            titleEl.style.transform = "translateX(-50%)";
-            titleEl.style.zIndex = "9999";
-            titleEl.style.fontSize = "26px";
-            titleEl.style.fontWeight = "900";
-            titleEl.style.color = "#0f172a"; // Slate 900
-            titleEl.style.backgroundColor = "rgba(255, 255, 255, 0.85)";
-            titleEl.style.padding = "10px 24px";
-            titleEl.style.borderRadius = "12px";
-            titleEl.style.border = "1px solid #cbd5e1";
-            titleEl.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1)";
-            titleEl.style.fontFamily = "sans-serif";
-            mapEl.appendChild(titleEl);
-          }
-        }
-      });
-      
-      const imgData = canvas.toDataURL("image/png");
-      const a = document.createElement("a");
-      a.href = imgData;
-      a.download = `${mapTitle.replace(/\\s+/g, "_")}.png`;
-      a.click();
-      
-    } catch (e) {
-      console.error(e);
-      alert("Rasmni yaratishda xatolik yuz berdi. Iltimos, xaritani biroz yaqinlashtirib tekshirib ko'ring yoki brauzeringiz printeri (Ctrl+P) dan foydalaning.");
-    } finally {
-      setIsExporting(false);
-    }
-  };
+
 
   /* ────────────────────────────────────────────────────────────────────────
      RENDER
@@ -519,27 +599,60 @@ export default function App() {
               </div>
 
               {/* Upload cards */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
                   { label: "GeoJSON / JSON", hint: "Hududiy chegaralar", accept: ".geojson,.json", onChange: handleGeoUpload, loaded: !!geoData, info: geoData ? `${geoData.features.length} ta obyekt` : null, icon: Layers },
                   { label: "Excel / CSV", hint: "Statistik jadval", accept: ".xlsx,.xls,.csv", onChange: handleExcelUpload, loaded: excelData.length > 0, info: excelData.length > 0 ? `${excelData.length} yozuv · ${excelColumns.length} ustun` : null, icon: FileSpreadsheet },
                 ].map(({ label, hint, accept, onChange, loaded, info, icon: Icon }) => (
                   <label key={label} className={cn(
-                    "relative rounded-xl border-2 border-dashed p-8 flex flex-col items-center gap-4 cursor-pointer transition-all group",
+                    "relative rounded-xl border-2 border-dashed p-6 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all group",
                     loaded ? "border-teal-500/50 bg-teal-500/5" : "border-slate-700 bg-slate-800/40 hover:border-slate-600 hover:bg-slate-800/60"
                   )}>
                     <input type="file" accept={accept} onChange={onChange} className="hidden" />
-                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-all",
+                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-all",
                       loaded ? "bg-teal-500/20 text-teal-400" : "bg-slate-700 text-slate-500 group-hover:text-slate-300"
                     )}>
-                      <Icon size={22} />
+                      <Icon size={20} />
                     </div>
                     <div className="text-center">
-                      <p className="font-bold text-sm text-white">{loaded ? `${label} yuklandi ✓` : label}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{info || hint}</p>
+                      <p className="font-bold text-[13px] text-white">{loaded ? `${label} yuklandi ✓` : label}</p>
+                      <p className="text-[11px] text-slate-500 mt-1">{info || hint}</p>
                     </div>
                   </label>
                 ))}
+
+                {/* API Fetch Card */}
+                <div className={cn(
+                  "relative rounded-xl border-2 border-slate-700 bg-slate-800/40 p-5 flex flex-col items-center justify-center gap-2 transition-all",
+                  isFetchingApi ? "border-teal-500/50 bg-teal-500/5" : "hover:border-slate-600 hover:bg-slate-800/60"
+                )}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-700 text-slate-400">
+                    <Database size={20} />
+                  </div>
+                  <div className="text-center w-full">
+                    <p className="font-bold text-[13px] text-white mb-2">API dan yuklash</p>
+                    <div className="flex flex-col gap-2 w-full mt-1">
+                      <select 
+                        value={selectedIndicator}
+                        onChange={e => setSelectedIndicator(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-teal-500"
+                      >
+                        {STAT_INDICATORS.map(ind => (
+                          <option key={ind.id} value={ind.id}>
+                            {ind.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button 
+                        onClick={fetchApiData}
+                        disabled={isFetchingApi || !selectedIndicator}
+                        className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white rounded px-3 py-1.5 text-xs font-bold transition-colors w-full"
+                      >
+                        {isFetchingApi ? "Yuklanmoqda..." : "Yuklash"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Settings */}
@@ -778,12 +891,24 @@ export default function App() {
             </aside>
 
             {/* ── MAP ─────────────────────────────────────────────────── */}
-            <section className="flex-1 relative flex flex-col overflow-hidden">
-              <div className="flex-1 relative" ref={mapRef}
-                style={{ background: baseMapKey === "none" ? "#0f172a" : baseMapKey === "dark" ? "#0d0d12" : "#aad3df" }}>
+            <section className={cn("flex-1 relative flex flex-col overflow-hidden", layoutMode ? "bg-[#0a0f18] p-4 sm:p-12 overflow-y-auto items-center justify-center" : "")}>
+              
+              {layoutMode && (
+                <div className="absolute top-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
+                  <div className="bg-teal-500/20 text-teal-400 px-4 py-1.5 rounded-full border border-teal-500/30 text-xs font-bold uppercase tracking-widest pointer-events-auto shadow-lg backdrop-blur-sm">
+                    Kompanovka Rejimi (A4 Landscape)
+                  </div>
+                </div>
+              )}
+
+              <div ref={mapRef}
+                className={cn("relative shrink-0 transition-all duration-500 ease-in-out", 
+                  layoutMode ? "aspect-[1.414] h-full max-h-[80vh] w-auto bg-white shadow-2xl rounded-sm overflow-hidden" : "w-full h-full flex-1")}
+                style={{ background: baseMapKey === "none" ? (layoutMode ? "#ffffff" : "#0f172a") : baseMapKey === "dark" ? "#0d0d12" : "#aad3df" }}>
                 <MapContainer center={[41.3, 63.9]} zoom={6} className="w-full h-full" zoomControl={false} scrollWheelZoom>
                   {/* Tracker Removed for performance */}
                   <MapController action={mapAction} />
+                  <ScaleControl position="bottomleft" imperial={false} />
                   {baseMapKey !== "none" && BASEMAPS[baseMapKey] && (
                     <TileLayer key={baseMapKey} url={BASEMAPS[baseMapKey].url} attribution={BASEMAPS[baseMapKey].attribution} crossOrigin="anonymous" />
                   )}
@@ -806,16 +931,26 @@ export default function App() {
                   )}
                 </MapContainer>
 
+                {/* ── Map Title Overlay ─────────────────────────────── */}
+                {mapTitle && (
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+                    <div className="bg-[#ffffff]/90 backdrop-blur-sm px-6 py-2.5 rounded-xl border border-[#e2e8f0]/50 shadow-lg text-center">
+                      <h1 className="text-xl font-extrabold text-[#1e293b] tracking-tight">{mapTitle}</h1>
+                      {mapping.valueKey && <p className="text-[10px] font-bold text-[#64748b] uppercase tracking-widest mt-0.5">{mapping.valueKey} y.</p>}
+                    </div>
+                  </div>
+                )}
+
                 {/* ── Legend ────────────────────────────────────────── */}
                 <div className="absolute bottom-12 right-3 z-[1000]">
-                  <div className="bg-[#151824]/95 backdrop-blur-sm p-3.5 rounded-lg border border-slate-700/50 shadow-xl min-w-[170px]">
-                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">{mapping.valueKey || "Izoh"}</div>
-                    <div className="text-[9px] text-slate-600 mb-2.5">({valueUnit})</div>
+                  <div className="bg-[#151824]/95 backdrop-blur-sm p-3.5 rounded-lg border border-[#334155]/50 shadow-xl min-w-[170px]">
+                    <div className="text-[9px] font-bold text-[#64748b] uppercase tracking-widest mb-0.5">{mapping.valueKey || "Izoh"}</div>
+                    <div className="text-[9px] text-[#475569] mb-2.5">({valueUnit})</div>
                     {classificationType === "continuous" ? (
                       <div>
                         <div className="h-2.5 w-full rounded"
                           style={{ background: `linear-gradient(to right, ${colorScale(stats.min)}, ${colorScale((stats.min+stats.max)/2)}, ${colorScale(stats.max)})` }} />
-                        <div className="flex justify-between font-mono text-[9px] text-slate-500 mt-1.5">
+                        <div className="flex justify-between font-mono text-[9px] text-[#64748b] mt-1.5">
                           <span>{stats.min.toLocaleString()}</span>
                           <span>{stats.max.toLocaleString()}</span>
                         </div>
@@ -824,24 +959,43 @@ export default function App() {
                       <div className="space-y-1.5">
                         {legendLabels.map((l, i) => (
                           <div key={i} className="flex items-center gap-2">
-                            <div className="w-4 h-3 rounded-sm shrink-0 border border-slate-700/30" style={{ background: l.color }} />
-                            <span className="font-mono text-[9px] text-slate-400">{l.label}</span>
+                            <div className="w-4 h-3 rounded-sm shrink-0 border border-[#334155]/30" style={{ background: l.color }} />
+                            <span className="font-mono text-[9px] text-[#94a3b8]">{l.label}</span>
                           </div>
                         ))}
                       </div>
                     )}
                     {/* No data item */}
-                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700/30">
-                      <div className="w-4 h-3 rounded-sm shrink-0 bg-slate-700 border border-slate-600/30" />
-                      <span className="text-[9px] text-slate-600">Ma'lumot yo'q</span>
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[#334155]/30">
+                      <div className="w-4 h-3 rounded-sm shrink-0 bg-[#334155] border border-[#475569]/30" />
+                      <span className="text-[9px] text-[#475569]">Ma'lumot yo'q</span>
                     </div>
                   </div>
                 </div>
 
+                {/* ── North Arrow ─────────────────────────────────────── */}
+                {layoutMode && (
+                  <div className="absolute top-6 left-6 z-[1000] pointer-events-none drop-shadow-md">
+                    <svg width="50" height="70" viewBox="0 0 50 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="25" cy="40" r="14" stroke="#1e293b" strokeWidth="2" fill="white" fillOpacity="0.5"/>
+                      <circle cx="25" cy="40" r="10" stroke="#1e293b" strokeWidth="0.5" strokeDasharray="2 2"/>
+                      <path d="M25 15 L33 40 L25 35 L17 40 Z" fill="#e11d48"/>
+                      <path d="M25 65 L33 40 L25 35 L17 40 Z" fill="#1e293b"/>
+                      <text x="25" y="10" fill="#1e293b" fontSize="16" fontWeight="900" fontFamily="sans-serif" textAnchor="middle">N</text>
+                    </svg>
+                  </div>
+                )}
+
                 {/* ── Floating toolbar ──────────────────────────────── */}
                 <div id="pdf-toolbar" className="absolute top-3 right-3 z-[1000] flex flex-col gap-1">
-                  <button onClick={downloadImage} disabled={isExporting} title="PNG Eksport"
-                    className="bg-[#151824]/90 p-2 rounded-lg border border-slate-700 hover:border-teal-500 text-slate-400 hover:text-teal-400 transition-all shadow-lg">
+                  <button onClick={() => setLayoutMode(!layoutMode)} title="Kompanovka"
+                    className={cn("p-2 rounded-lg border transition-all shadow-lg", 
+                      layoutMode ? "bg-teal-600 border-teal-500 text-white" : "bg-[#151824]/90 border-slate-700 hover:border-teal-500 text-slate-400 hover:text-teal-400")}>
+                    <Move size={14} />
+                  </button>
+                  <button onClick={downloadImage} disabled={isExporting} title="PNG yuklash"
+                    className={cn("p-2 rounded-lg border transition-all shadow-lg",
+                      layoutMode ? "bg-blue-600/90 hover:bg-blue-500 border-blue-500 text-white" : "bg-[#151824]/90 border-slate-700 hover:border-teal-500 text-slate-400 hover:text-teal-400")}>
                     <Download size={14} />
                   </button>
                 </div>
@@ -910,10 +1064,10 @@ export default function App() {
                       {/* Stats summary bar */}
                       <div className="px-3 py-2 border-b border-slate-800 grid grid-cols-4 gap-1">
                         {[
-                          { l: "Min",     v: stats.min.toLocaleString(),    c: "text-sky-400" },
-                          { l: "Max",     v: stats.max.toLocaleString(),    c: "text-red-400" },
-                          { l: "O'rtacha",v: stats.avg.toLocaleString(),    c: "text-amber-400" },
-                          { l: "Mediana", v: stats.median.toLocaleString(), c: "text-teal-400" },
+                          { l: "Jami",      v: stats.total.toLocaleString(),  c: "text-teal-400" },
+                          { l: "Kichigi",   v: stats.min.toLocaleString(),    c: "text-sky-400" },
+                          { l: "Kattasi",   v: stats.max.toLocaleString(),    c: "text-red-400" },
+                          { l: "O'rtacha",  v: stats.avg.toLocaleString(),    c: "text-amber-400" },
                         ].map(({ l, v, c }) => (
                           <div key={l} className="text-center">
                             <div className={cn("text-[11px] font-bold tabular-nums", c)}>{v}</div>
