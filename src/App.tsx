@@ -428,35 +428,51 @@ export default function App() {
   const downloadImage = async () => {
     if (!mapRef.current) return;
     setIsExporting(true);
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1500));
+    
     try {
       const canvas = await html2canvas(mapRef.current, {
         useCORS: true,
-        allowTaint: false,
-        scale: 2, // High resolution
+        allowTaint: true,
+        scale: layoutMode ? 3 : 2,
         logging: false,
         backgroundColor: "#ffffff",
+        windowHeight: mapRef.current.scrollHeight || mapRef.current.clientHeight,
+        windowWidth: mapRef.current.scrollWidth || mapRef.current.clientWidth,
         ignoreElements: (element) => {
-          return element.id === "pdf-toolbar" || element.id === "hover-title-bar";
+          return element.id === "pdf-toolbar" || element.classList.contains("leaflet-control");
         },
-        onclone: (doc) => {
-          const s = doc.createElement("style");
-          s.innerHTML = `
-            * { color-scheme: light; text-shadow: none !important; }
-            .leaflet-control-zoom { display: none !important; }
+        onclone: (clonedDoc) => {
+          const style = clonedDoc.createElement("style");
+          style.innerHTML = `
+            body { margin: 0; padding: 0; }
+            * { 
+              text-shadow: none !important;
+              color-scheme: light;
+            }
+            .leaflet-control { display: none !important; }
+            .leaflet-pane { position: relative !important; }
+            .custom-label { font-family: 'Inter', sans-serif !important; }
           `;
-          doc.head.appendChild(s);
+          clonedDoc.head.appendChild(style);
         }
       });
       
-      const imgData = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      link.href = imgData;
-      link.download = "geo_vizor_map.png";
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const filename = layoutMode 
+        ? `geovizor_map_${mapTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${timestamp}.png`
+        : `geovizor_map_${timestamp}.png`;
+      
+      link.href = canvas.toDataURL("image/png", 0.95);
+      link.download = filename;
       link.click();
+      
+      // Cleanup
+      setTimeout(() => link.remove(), 100);
     } catch (err) {
-      console.error(err);
-      alert("Rasmni saqlashda xatolik yuz berdi.");
+      console.error("Screenshot error:", err);
+      alert(`Rasmni saqlashda xatolik: ${err instanceof Error ? err.message : "Noma'lum xato"}`);
     } finally {
       setIsExporting(false);
     }
