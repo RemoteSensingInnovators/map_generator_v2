@@ -891,7 +891,7 @@ export default function App() {
             </aside>
 
             {/* ── MAP ─────────────────────────────────────────────────── */}
-            <section className={cn("flex-1 relative flex flex-col overflow-hidden", layoutMode ? "bg-[#0a0f18] p-4 sm:p-12 overflow-y-auto items-center justify-center" : "")}>
+            <section className={cn("flex-1 relative flex flex-col overflow-hidden", layoutMode ? "bg-[#0a0f18] p-4 sm:p-12 overflow-auto items-center justify-center" : "")}>
               
               {layoutMode && (
                 <div className="absolute top-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
@@ -903,8 +903,16 @@ export default function App() {
 
               <div ref={mapRef}
                 className={cn("relative shrink-0 transition-all duration-500 ease-in-out", 
-                  layoutMode ? "aspect-[1.414] h-full max-h-[80vh] w-auto bg-white shadow-2xl rounded-sm overflow-hidden" : "w-full h-full flex-1")}
-                style={{ background: baseMapKey === "none" ? (layoutMode ? "#ffffff" : "#0f172a") : baseMapKey === "dark" ? "#0d0d12" : "#aad3df" }}>
+                  layoutMode ? "bg-white shadow-2xl rounded-sm overflow-hidden" : "w-full h-full flex-1")}
+                style={layoutMode ? {
+                  background: baseMapKey === "none" ? "#ffffff" : baseMapKey === "dark" ? "#0d0d12" : "#aad3df",
+                  width: "calc(100vh * 1.414)",
+                  height: "100vh",
+                  maxHeight: "80vh",
+                  maxWidth: "calc(80vh * 1.414)"
+                } : {
+                  background: baseMapKey === "none" ? "#0f172a" : baseMapKey === "dark" ? "#0d0d12" : "#aad3df"
+                }}>
                 <MapContainer center={[41.3, 63.9]} zoom={6} className="w-full h-full" zoomControl={false} scrollWheelZoom>
                   {/* Tracker Removed for performance */}
                   <MapController action={mapAction} />
