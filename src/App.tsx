@@ -248,7 +248,7 @@ export default function App() {
   const [rightTab, setRightTab]             = useState<"attributes" | "info" | "chart">("attributes");
   const [searchQuery, setSearchQuery]       = useState<string>("");
   const [isLabelMode, setIsLabelMode]       = useState<boolean>(false);
-  const [layoutMode, setLayoutMode]         = useState<boolean>(false);
+  const layoutMode = false;
   const [labelPositions, setLabelPositions] = useState<Record<string, { lat: number; lng: number }>>({});
   const [selectedIndicator, setSelectedIndicator] = useState<string>("246");
   const [isFetchingApi, setIsFetchingApi]          = useState(false);
@@ -924,17 +924,8 @@ export default function App() {
               )}
 
               <div ref={mapRef}
-                className={cn("relative shrink-0 transition-all duration-500 ease-in-out", 
-                  layoutMode ? "bg-white shadow-2xl rounded-sm overflow-hidden" : "w-full h-full flex-1")}
-                style={layoutMode ? {
-                  background: baseMapKey === "none" ? "#ffffff" : baseMapKey === "dark" ? "#0d0d12" : "#aad3df",
-                  width: "calc(100vh * 1.414)",
-                  height: "100vh",
-                  maxHeight: "80vh",
-                  maxWidth: "calc(80vh * 1.414)"
-                } : {
-                  background: baseMapKey === "none" ? "#0f172a" : baseMapKey === "dark" ? "#0d0d12" : "#aad3df"
-                }}>
+                className="relative shrink-0 transition-all duration-500 ease-in-out w-full h-full flex-1"
+                style={{ background: baseMapKey === "none" ? "#0f172a" : baseMapKey === "dark" ? "#0d0d12" : "#aad3df" }}>
                 <MapContainer center={[41.3, 63.9]} zoom={6} className="w-full h-full" zoomControl={false} scrollWheelZoom>
                   {/* Tracker Removed for performance */}
                   <MapController action={mapAction} />
@@ -1005,120 +996,21 @@ export default function App() {
                       <div className="w-4 h-3 rounded-sm shrink-0 bg-[#334155] border border-[#475569]/30" />
                       <span className="text-[9px] text-[#475569]">Ma'lumot yo'q</span>
                     </div>
-                    {/* Attribution for layout mode */}
-                    {layoutMode && showAttribution && (
+                    {showAttribution && (
                       <div className="text-[7px] text-[#64748b] mt-2 pt-2 border-t border-[#334155]/30">
                         © {new Date().getFullYear()} GeoVizor · Leaflet · OpenStreetMap
                       </div>
                     )}
                   </div>
                 </div>
-
-                {/* ── North Arrow ─────────────────────────────────────── */}
-                {layoutMode && showNorthArrow && (
-                  <div className="absolute top-6 left-6 z-[1000] pointer-events-none drop-shadow-md">
-                    <svg width="50" height="70" viewBox="0 0 50 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="25" cy="40" r="14" stroke="#1e293b" strokeWidth="2" fill="white" fillOpacity="0.5"/>
-                      <circle cx="25" cy="40" r="10" stroke="#1e293b" strokeWidth="0.5" strokeDasharray="2 2"/>
-                      <path d="M25 15 L33 40 L25 35 L17 40 Z" fill="#e11d48"/>
-                      <path d="M25 65 L33 40 L25 35 L17 40 Z" fill="#1e293b"/>
-                      <text x="25" y="10" fill="#1e293b" fontSize="16" fontWeight="900" fontFamily="sans-serif" textAnchor="middle">N</text>
-                    </svg>
-                  </div>
-                )}
-
-                {/* ── Floating toolbar ──────────────────────────────── */}
+                {/* Floating toolbar: single download button (layout mode removed) */}
                 <div id="pdf-toolbar" className="absolute top-3 right-3 z-[1000] flex flex-col gap-1">
-                  {!layoutMode && (
-                    <button onClick={downloadImage} disabled={isExporting} title="PNG yuklash"
-                      className={cn("p-2 rounded-lg border transition-all shadow-lg",
-                        "bg-[#151824]/90 border-slate-700 hover:border-teal-500 text-slate-400 hover:text-teal-400")}>
-                      <Download size={14} />
-                    </button>
-                  )}
-                  <button onClick={() => setLayoutMode(!layoutMode)} title="Kompanovka / Xarita"
-                    className={cn("p-2 rounded-lg border transition-all shadow-lg", 
-                      layoutMode ? "bg-teal-600 border-teal-500 text-white" : "bg-[#151824]/90 border-slate-700 hover:border-teal-500 text-slate-400 hover:text-teal-400")}>
-                    <Move size={14} />
+                  <button onClick={downloadImage} disabled={isExporting} title="PNG yuklash"
+                    className={cn("p-2 rounded-lg border transition-all shadow-lg",
+                      "bg-[#151824]/90 border-slate-700 hover:border-teal-500 text-slate-400 hover:text-teal-400")}>
+                    <Download size={14} />
                   </button>
                 </div>
-
-                {/* ── GIS Layout Controls (Kompanovka) ────────────────── */}
-                {layoutMode && (
-                  <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg border border-slate-300 shadow-xl p-3 max-w-xs">
-                    <div className="text-xs font-bold text-slate-800 mb-3 uppercase tracking-widest">GIS Kartografiya</div>
-                    <div className="space-y-2.5">
-                      {/* Grid toggle */}
-                      <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200">
-                        <label className="text-xs font-semibold text-slate-700">Koordinata tori</label>
-                        <button onClick={() => setShowGrid(!showGrid)}
-                          className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all", 
-                            showGrid ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
-                          {showGrid ? "Yoniq" : "O'chiq"}
-                        </button>
-                      </div>
-
-                      {/* Scale bar toggle */}
-                      <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200">
-                        <label className="text-xs font-semibold text-slate-700">O'lchov chizig'i</label>
-                        <button onClick={() => setShowScale(!showScale)}
-                          className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all", 
-                            showScale ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
-                          {showScale ? "Yoniq" : "O'chiq"}
-                        </button>
-                      </div>
-
-                      {/* North Arrow toggle */}
-                      <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200">
-                        <label className="text-xs font-semibold text-slate-700">Shimoliy o'q</label>
-                        <button onClick={() => setShowNorthArrow(!showNorthArrow)}
-                          className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all", 
-                            showNorthArrow ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
-                          {showNorthArrow ? "Yoniq" : "O'chiq"}
-                        </button>
-                      </div>
-
-                      {/* Coordinates toggle */}
-                      <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200">
-                        <label className="text-xs font-semibold text-slate-700">Koordinatalar</label>
-                        <button onClick={() => setShowCoordinates(!showCoordinates)}
-                          className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all", 
-                            showCoordinates ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
-                          {showCoordinates ? "Yoniq" : "O'chiq"}
-                        </button>
-                      </div>
-
-                      {/* Legend position */}
-                      <div className="pb-2 border-b border-slate-200">
-                        <label className="text-xs font-semibold text-slate-700 block mb-1.5">Izoh joylashuvi</label>
-                        <div className="grid grid-cols-4 gap-1">
-                          {[
-                            { pos: "tl" as const, label: "⤴" },
-                            { pos: "tr" as const, label: "↗" },
-                            { pos: "bl" as const, label: "↙" },
-                            { pos: "br" as const, label: "⤵" },
-                          ].map(({ pos, label }) => (
-                            <button key={pos} onClick={() => setLegendPosition(pos)}
-                              className={cn("p-1 rounded text-xs font-bold transition-all", 
-                                legendPosition === pos ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Attribution toggle */}
-                      <div className="flex items-center justify-between gap-3">
-                        <label className="text-xs font-semibold text-slate-700">Manba nisbati</label>
-                        <button onClick={() => setShowAttribution(!showAttribution)}
-                          className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all", 
-                            showAttribution ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
-                          {showAttribution ? "Yoniq" : "O'chiq"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* ── No data warning ───────────────────────────────── */}
                 {!geoData && (
