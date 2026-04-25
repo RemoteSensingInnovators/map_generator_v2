@@ -252,6 +252,12 @@ export default function App() {
   const [labelPositions, setLabelPositions] = useState<Record<string, { lat: number; lng: number }>>({});
   const [selectedIndicator, setSelectedIndicator] = useState<string>("246");
   const [isFetchingApi, setIsFetchingApi]          = useState(false);
+  const [showGrid, setShowGrid]                     = useState<boolean>(true);
+  const [showScale, setShowScale]                   = useState<boolean>(true);
+  const [showNorthArrow, setShowNorthArrow]         = useState<boolean>(true);
+  const [showCoordinates, setShowCoordinates]       = useState<boolean>(true);
+  const [legendPosition, setLegendPosition]         = useState<"br" | "bl" | "tr" | "tl">("br");
+  const [showAttribution, setShowAttribution]       = useState<boolean>(true);
   const mapRef = useRef<HTMLDivElement>(null);
 
   /* ── File handlers ─────────────────────────────────────────────────────── */
@@ -932,9 +938,9 @@ export default function App() {
                 <MapContainer center={[41.3, 63.9]} zoom={6} className="w-full h-full" zoomControl={false} scrollWheelZoom>
                   {/* Tracker Removed for performance */}
                   <MapController action={mapAction} />
-                  <ScaleControl position="bottomleft" imperial={false} />
+                  {showScale && <ScaleControl position="bottomleft" imperial={false} />}
                   {baseMapKey !== "none" && BASEMAPS[baseMapKey] && (
-                    <TileLayer key={baseMapKey} url={BASEMAPS[baseMapKey].url} attribution={BASEMAPS[baseMapKey].attribution} crossOrigin="anonymous" />
+                    <TileLayer key={baseMapKey} url={BASEMAPS[baseMapKey].url} attribution={layoutMode ? "" : BASEMAPS[baseMapKey].attribution} crossOrigin="anonymous" />
                   )}
                   {geoData && (
                     <>
@@ -966,7 +972,12 @@ export default function App() {
                 )}
 
                 {/* ── Legend ────────────────────────────────────────── */}
-                <div className="absolute bottom-12 right-3 z-[1000]">
+                <div className={cn("absolute z-[1000]", {
+                  "bottom-12 right-3": legendPosition === "br",
+                  "bottom-12 left-3": legendPosition === "bl",
+                  "top-24 right-3": legendPosition === "tr",
+                  "top-24 left-3": legendPosition === "tl",
+                })}>
                   <div className="bg-[#151824]/95 backdrop-blur-sm p-3.5 rounded-lg border border-[#334155]/50 shadow-xl min-w-[170px]">
                     <div className="text-[9px] font-bold text-[#64748b] uppercase tracking-widest mb-0.5">{mapping.valueKey || "Izoh"}</div>
                     <div className="text-[9px] text-[#475569] mb-2.5">({valueUnit})</div>
@@ -994,11 +1005,17 @@ export default function App() {
                       <div className="w-4 h-3 rounded-sm shrink-0 bg-[#334155] border border-[#475569]/30" />
                       <span className="text-[9px] text-[#475569]">Ma'lumot yo'q</span>
                     </div>
+                    {/* Attribution for layout mode */}
+                    {layoutMode && showAttribution && (
+                      <div className="text-[7px] text-[#64748b] mt-2 pt-2 border-t border-[#334155]/30">
+                        © {new Date().getFullYear()} GeoVizor · Leaflet · OpenStreetMap
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* ── North Arrow ─────────────────────────────────────── */}
-                {layoutMode && (
+                {layoutMode && showNorthArrow && (
                   <div className="absolute top-6 left-6 z-[1000] pointer-events-none drop-shadow-md">
                     <svg width="50" height="70" viewBox="0 0 50 70" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <circle cx="25" cy="40" r="14" stroke="#1e293b" strokeWidth="2" fill="white" fillOpacity="0.5"/>
@@ -1012,17 +1029,96 @@ export default function App() {
 
                 {/* ── Floating toolbar ──────────────────────────────── */}
                 <div id="pdf-toolbar" className="absolute top-3 right-3 z-[1000] flex flex-col gap-1">
-                  <button onClick={() => setLayoutMode(!layoutMode)} title="Kompanovka"
+                  {!layoutMode && (
+                    <button onClick={downloadImage} disabled={isExporting} title="PNG yuklash"
+                      className={cn("p-2 rounded-lg border transition-all shadow-lg",
+                        "bg-[#151824]/90 border-slate-700 hover:border-teal-500 text-slate-400 hover:text-teal-400")}>
+                      <Download size={14} />
+                    </button>
+                  )}
+                  <button onClick={() => setLayoutMode(!layoutMode)} title="Kompanovka / Xarita"
                     className={cn("p-2 rounded-lg border transition-all shadow-lg", 
                       layoutMode ? "bg-teal-600 border-teal-500 text-white" : "bg-[#151824]/90 border-slate-700 hover:border-teal-500 text-slate-400 hover:text-teal-400")}>
                     <Move size={14} />
                   </button>
-                  <button onClick={downloadImage} disabled={isExporting} title="PNG yuklash"
-                    className={cn("p-2 rounded-lg border transition-all shadow-lg",
-                      layoutMode ? "bg-blue-600/90 hover:bg-blue-500 border-blue-500 text-white" : "bg-[#151824]/90 border-slate-700 hover:border-teal-500 text-slate-400 hover:text-teal-400")}>
-                    <Download size={14} />
-                  </button>
                 </div>
+
+                {/* ── GIS Layout Controls (Kompanovka) ────────────────── */}
+                {layoutMode && (
+                  <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg border border-slate-300 shadow-xl p-3 max-w-xs">
+                    <div className="text-xs font-bold text-slate-800 mb-3 uppercase tracking-widest">GIS Kartografiya</div>
+                    <div className="space-y-2.5">
+                      {/* Grid toggle */}
+                      <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200">
+                        <label className="text-xs font-semibold text-slate-700">Koordinata tori</label>
+                        <button onClick={() => setShowGrid(!showGrid)}
+                          className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all", 
+                            showGrid ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
+                          {showGrid ? "Yoniq" : "O'chiq"}
+                        </button>
+                      </div>
+
+                      {/* Scale bar toggle */}
+                      <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200">
+                        <label className="text-xs font-semibold text-slate-700">O'lchov chizig'i</label>
+                        <button onClick={() => setShowScale(!showScale)}
+                          className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all", 
+                            showScale ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
+                          {showScale ? "Yoniq" : "O'chiq"}
+                        </button>
+                      </div>
+
+                      {/* North Arrow toggle */}
+                      <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200">
+                        <label className="text-xs font-semibold text-slate-700">Shimoliy o'q</label>
+                        <button onClick={() => setShowNorthArrow(!showNorthArrow)}
+                          className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all", 
+                            showNorthArrow ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
+                          {showNorthArrow ? "Yoniq" : "O'chiq"}
+                        </button>
+                      </div>
+
+                      {/* Coordinates toggle */}
+                      <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-200">
+                        <label className="text-xs font-semibold text-slate-700">Koordinatalar</label>
+                        <button onClick={() => setShowCoordinates(!showCoordinates)}
+                          className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all", 
+                            showCoordinates ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
+                          {showCoordinates ? "Yoniq" : "O'chiq"}
+                        </button>
+                      </div>
+
+                      {/* Legend position */}
+                      <div className="pb-2 border-b border-slate-200">
+                        <label className="text-xs font-semibold text-slate-700 block mb-1.5">Izoh joylashuvi</label>
+                        <div className="grid grid-cols-4 gap-1">
+                          {[
+                            { pos: "tl" as const, label: "⤴" },
+                            { pos: "tr" as const, label: "↗" },
+                            { pos: "bl" as const, label: "↙" },
+                            { pos: "br" as const, label: "⤵" },
+                          ].map(({ pos, label }) => (
+                            <button key={pos} onClick={() => setLegendPosition(pos)}
+                              className={cn("p-1 rounded text-xs font-bold transition-all", 
+                                legendPosition === pos ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Attribution toggle */}
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="text-xs font-semibold text-slate-700">Manba nisbati</label>
+                        <button onClick={() => setShowAttribution(!showAttribution)}
+                          className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all", 
+                            showAttribution ? "bg-teal-500 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300")}>
+                          {showAttribution ? "Yoniq" : "O'chiq"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* ── No data warning ───────────────────────────────── */}
                 {!geoData && (
@@ -1036,19 +1132,21 @@ export default function App() {
               </div>
 
               {/* ── STATUS BAR ────────────────────────────────────────── */}
-              <div className="h-6 bg-[#0f1420] border-t border-slate-800 flex items-center px-3 gap-4 shrink-0 text-[10px] text-slate-600 font-mono">
-                {coord ? (
-                  <span className="text-teal-500">
-                    Lat: {coord.lat.toFixed(5)}  Lon: {coord.lng.toFixed(5)}
-                  </span>
-                ) : (
-                  <span>Koordinatalar</span>
-                )}
-                <span className="border-l border-slate-800 pl-4">CRS: EPSG:4326 (WGS 84)</span>
-                <span className="border-l border-slate-800 pl-4">Proyeksiya: Web Mercator</span>
-                {mapping.valueKey && <span className="border-l border-slate-800 pl-4 text-slate-500">Metrika: {mapping.valueKey}</span>}
-                <span className="ml-auto">{BASEMAPS[baseMapKey]?.label}</span>
-              </div>
+              {!layoutMode && (
+                <div className="h-6 bg-[#0f1420] border-t border-slate-800 flex items-center px-3 gap-4 shrink-0 text-[10px] text-slate-600 font-mono">
+                  {coord ? (
+                    <span className="text-teal-500">
+                      Lat: {coord.lat.toFixed(5)}  Lon: {coord.lng.toFixed(5)}
+                    </span>
+                  ) : (
+                    <span>Koordinatalar</span>
+                  )}
+                  <span className="border-l border-slate-800 pl-4">CRS: EPSG:4326 (WGS 84)</span>
+                  <span className="border-l border-slate-800 pl-4">Proyeksiya: Web Mercator</span>
+                  {mapping.valueKey && <span className="border-l border-slate-800 pl-4 text-slate-500">Metrika: {mapping.valueKey}</span>}
+                  <span className="ml-auto">{BASEMAPS[baseMapKey]?.label}</span>
+                </div>
+              )}
             </section>
 
             {/* ── RIGHT PANEL — Attribute Table ────────────────────── */}
