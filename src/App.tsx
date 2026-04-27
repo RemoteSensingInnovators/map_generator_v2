@@ -14,7 +14,7 @@ import {
   schemeOranges, schemeRdYlGn, schemeSpectral, schemeBrBG, schemeYlGnBu
 } from "d3-scale-chromatic";
 import { motion } from "motion/react";
-import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Download, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, TrendingUp, Crosshair, Database, Move } from "lucide-react";
+import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, TrendingUp, Crosshair, Database, Move } from "lucide-react";
 import { Marker } from "react-leaflet";
 
 /* ── Palettes ─────────────────────────────────────────────────────────────── */
@@ -231,7 +231,7 @@ export default function App() {
   const [mapTitle, setMapTitle]             = useState<string>("GeoVizor Xaritasi");
   const [colorPalette, setColorPalette]     = useState<keyof typeof COLOR_PALETTES>("Yellow-Orange-Red");
   const [borderWidth, setBorderWidth]       = useState<number>(1);
-  const [isExporting, setIsExporting]       = useState(false);
+
   const [baseMapKey, setBaseMapKey]         = useState<string>("osm");
   const [classificationType, setClassificationType] = useState<"continuous" | "equal" | "quantile">("continuous");
   const [numClasses, setNumClasses]         = useState<number>(5);
@@ -431,58 +431,7 @@ export default function App() {
   };
 
   /* ── Legend ────────────────────────────────────────────────────────────── */
-  const downloadImage = async () => {
-    if (!mapRef.current) return;
-    setIsExporting(true);
-    await new Promise(r => setTimeout(r, 1500));
-    
-    try {
-      const canvas = await html2canvas(mapRef.current, {
-        useCORS: true,
-        allowTaint: true,
-        scale: layoutMode ? 3 : 2,
-        logging: false,
-        backgroundColor: "#ffffff",
-        windowHeight: mapRef.current.scrollHeight || mapRef.current.clientHeight,
-        windowWidth: mapRef.current.scrollWidth || mapRef.current.clientWidth,
-        ignoreElements: (element) => {
-          return element.id === "pdf-toolbar" || element.classList.contains("leaflet-control");
-        },
-        onclone: (clonedDoc) => {
-          const style = clonedDoc.createElement("style");
-          style.innerHTML = `
-            body { margin: 0; padding: 0; }
-            * { 
-              text-shadow: none !important;
-              color-scheme: light;
-            }
-            .leaflet-control { display: none !important; }
-            .leaflet-pane { position: relative !important; }
-            .custom-label { font-family: 'Inter', sans-serif !important; }
-          `;
-          clonedDoc.head.appendChild(style);
-        }
-      });
-      
-      const link = document.createElement("a");
-      const timestamp = new Date().toISOString().slice(0, 10);
-      const filename = layoutMode 
-        ? `geovizor_map_${mapTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${timestamp}.png`
-        : `geovizor_map_${timestamp}.png`;
-      
-      link.href = canvas.toDataURL("image/png", 0.95);
-      link.download = filename;
-      link.click();
-      
-      // Cleanup
-      setTimeout(() => link.remove(), 100);
-    } catch (err) {
-      console.error("Screenshot error:", err);
-      alert(`Rasmni saqlashda xatolik: ${err instanceof Error ? err.message : "Noma'lum xato"}`);
-    } finally {
-      setIsExporting(false);
-    }
-  };
+
 
 
 
@@ -580,16 +529,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Image export */}
-        {activeTab === "map" && (
-          <div className="flex items-center gap-0.5 px-3 border-r border-slate-800">
-            <button onClick={downloadImage} title="Rasm yuklab olish (PNG)"
-              disabled={isExporting}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-semibold text-slate-300 hover:text-white hover:bg-slate-700 transition-all disabled:opacity-40">
-              <Download size={12} />{isExporting ? "Yuklanmoqda..." : "Eksport"}
-            </button>
-          </div>
-        )}
+
 
         {/* Status */}
         <div className="ml-auto flex items-center gap-3 pr-2">
@@ -1002,14 +942,6 @@ export default function App() {
                       </div>
                     )}
                   </div>
-                </div>
-                {/* Floating toolbar: single download button (layout mode removed) */}
-                <div id="pdf-toolbar" className="absolute top-3 right-3 z-[1000] flex flex-col gap-1">
-                  <button onClick={downloadImage} disabled={isExporting} title="PNG yuklash"
-                    className={cn("p-2 rounded-lg border transition-all shadow-lg",
-                      "bg-[#151824]/90 border-slate-700 hover:border-teal-500 text-slate-400 hover:text-teal-400")}>
-                    <Download size={14} />
-                  </button>
                 </div>
 
                 {/* ── No data warning ───────────────────────────────── */}
