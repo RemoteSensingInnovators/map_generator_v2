@@ -694,7 +694,9 @@ export default function App() {
   };
 
   /* Clone kompLayoutRef outside the fixed/backdrop-blur ancestor so
-     html2canvas can capture it cleanly. */
+     html2canvas can capture it cleanly.
+     Also normalises oklch/oklab computed colours → rgb() because
+     html2canvas's CSS parser doesn't support modern colour functions. */
   const captureKomp = async (): Promise<HTMLCanvasElement> => {
     const el = kompLayoutRef.current;
     if (!el) throw new Error('Layout topilmadi');
@@ -713,7 +715,38 @@ export default function App() {
     wrapper.appendChild(clone);
     document.body.appendChild(wrapper);
 
-    // Wait for any <img> tags to load (e.g. map snapshot)
+    // One frame so the clone is laid out and getComputedStyle works
+    await new Promise(r => requestAnimationFrame(r));
+
+    // Normalise oklch/oklab → rgb using a scratch canvas (browser converts for us)
+    const scratch = document.createElement('canvas').getContext('2d')!;
+    const COLOR_PROPS: Array<keyof CSSStyleDeclaration> = [
+      'color', 'backgroundColor',
+      'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+      'outlineColor', 'textDecorationColor',
+    ];
+    const needsFix = (v: string) =>
+      v && (v.includes('oklab') || v.includes('oklch') || v.includes('color('));
+
+    [clone, ...Array.from(clone.querySelectorAll('*'))].forEach(node => {
+      const htmlEl = node as HTMLElement;
+      try {
+        const cs = getComputedStyle(htmlEl);
+        COLOR_PROPS.forEach(prop => {
+          try {
+            const val = cs[prop] as string;
+            if (!needsFix(val)) return;
+            scratch.fillStyle = val;          // browser normalises → sRGB
+            (htmlEl.style as any)[prop] = scratch.fillStyle;
+          } catch { /* ignore single-prop failures */ }
+        });
+        // Box-shadow may also carry oklch — strip colour part with regex
+        const shadow = cs.boxShadow;
+        if (needsFix(shadow)) htmlEl.style.boxShadow = 'none';
+      } catch { /* ignore element */ }
+    });
+
+    // Wait for any <img> tags (map snapshot) to finish loading
     await Promise.all(
       [...clone.querySelectorAll('img')].map(img =>
         img.complete
@@ -721,7 +754,6 @@ export default function App() {
           : new Promise<void>(r => { img.onload = () => r(); img.onerror = () => r(); })
       )
     );
-    await new Promise(r => requestAnimationFrame(r));
 
     try {
       return await html2canvas(clone, {
@@ -729,6 +761,7 @@ export default function App() {
         logging: false, backgroundColor: '#0d1117',
         width: w, height: h,
         windowWidth: w, windowHeight: h,
+        ignoreElements: (node: Element) => node.hasAttribute('data-html2canvas-ignore'),
       });
     } finally {
       document.body.removeChild(wrapper);
