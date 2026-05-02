@@ -679,11 +679,12 @@ export default function App() {
     setShowKompanovka(true);
     if (mapRef.current) {
       // Small delay so Leaflet tiles finish rendering
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 400));
       try {
         const canvas = await html2canvas(mapRef.current, {
           useCORS: true, allowTaint: true, scale: 1.5,
           logging: false, backgroundColor: '#0f172a',
+          ignoreElements: (el: Element) => el.hasAttribute('data-html2canvas-ignore'),
         });
         canvas.toBlob(blob => {
           if (blob) setKompMapImg(URL.createObjectURL(blob));
@@ -793,20 +794,54 @@ export default function App() {
       rankedData.length ? `Top 3: ${rankedData.slice(0,3).map((d:any)=>d.name).join(", ")}` : null,
     ].filter(Boolean).join("\n");
 
+    let replied = false;
+
+    // 1️⃣ Server endpoint (Pollinations → Gemini chain)
     try {
       const res = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next, mapContext }),
       });
-      const data = await res.json();
-      setChatMessages(prev => [...prev, { role: "model", text: data.text || data.error || "Xatolik yuz berdi." }]);
-    } catch {
-      setChatMessages(prev => [...prev, { role: "model", text: "Server bilan bog'lanishda xatolik." }]);
-    } finally {
-      setChatLoading(false);
-      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.text) {
+          setChatMessages(prev => [...prev, { role: "model", text: data.text }]);
+          replied = true;
+        }
+      }
+    } catch { /* fall through to client-side fallback */ }
+
+    // 2️⃣ Direct Pollinations.ai — works from browser, no API key, CORS supported
+    if (!replied) {
+      try {
+        const sysPrompt = `Sen O'zbekiston GIS xarita generator dasturining aqlli yordamchisisisan. Qisqa, aniq va foydali javob ber. Savol o'zbek tilida bo'lsa — o'zbek tilida, rus tilida bo'lsa — rus tilida javob ber.${mapContext ? `\n\nHozirgi xarita:\n${mapContext}` : ""}`;
+        const msgs = [
+          { role: "system", content: sysPrompt },
+          ...next.map((m: ChatMsg) => ({ role: m.role === "model" ? "assistant" : "user", content: m.text })),
+        ];
+        const r = await fetch("https://text.pollinations.ai/openai/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "openai", messages: msgs, seed: 42 }),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          const reply = d?.choices?.[0]?.message?.content || "";
+          if (reply) {
+            setChatMessages(prev => [...prev, { role: "model", text: reply }]);
+            replied = true;
+          }
+        }
+      } catch { /* ignore */ }
     }
+
+    if (!replied) {
+      setChatMessages(prev => [...prev, { role: "model", text: "AI xizmati vaqtincha mavjud emas. Keyinroq urinib ko'ring." }]);
+    }
+
+    setChatLoading(false);
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   };
 
   /* ────────────────────────────────────────────────────────────────────────
