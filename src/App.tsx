@@ -678,49 +678,95 @@ export default function App() {
   const openKompanovka = async () => {
     setShowKompanovka(true);
     if (mapRef.current) {
+      // Small delay so Leaflet tiles finish rendering
+      await new Promise(r => setTimeout(r, 300));
       try {
-        const canvas = await html2canvas(mapRef.current, { useCORS: true, allowTaint: true, scale: 1, logging: false, backgroundColor: null });
-        setKompMapImg(canvas.toDataURL("image/jpeg", 0.9));
+        const canvas = await html2canvas(mapRef.current, {
+          useCORS: true, allowTaint: true, scale: 1.5,
+          logging: false, backgroundColor: '#0f172a',
+        });
+        canvas.toBlob(blob => {
+          if (blob) setKompMapImg(URL.createObjectURL(blob));
+        }, 'image/jpeg', 0.92);
       } catch { setKompMapImg(""); }
     }
   };
 
-  const downloadBlob = (dataUrl: string, filename: string) => {
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => document.body.removeChild(a), 200);
+  /* Clone kompLayoutRef outside the fixed/backdrop-blur ancestor so
+     html2canvas can capture it cleanly. */
+  const captureKomp = async (): Promise<HTMLCanvasElement> => {
+    const el = kompLayoutRef.current;
+    if (!el) throw new Error('Layout topilmadi');
+    const rect = el.getBoundingClientRect();
+    const w = Math.round(rect.width);
+    const h = Math.round(rect.height);
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText =
+      `position:fixed;top:0;left:${-(w + 200)}px;` +
+      `width:${w}px;height:${h}px;overflow:hidden;` +
+      `pointer-events:none;z-index:99999;`;
+
+    const clone = el.cloneNode(true) as HTMLElement;
+    clone.style.cssText += ';position:relative;top:0;left:0;transform:none;';
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    // Wait for any <img> tags to load (e.g. map snapshot)
+    await Promise.all(
+      [...clone.querySelectorAll('img')].map(img =>
+        img.complete
+          ? Promise.resolve()
+          : new Promise<void>(r => { img.onload = () => r(); img.onerror = () => r(); })
+      )
+    );
+    await new Promise(r => requestAnimationFrame(r));
+
+    try {
+      return await html2canvas(clone, {
+        scale: 2, useCORS: true, allowTaint: true,
+        logging: false, backgroundColor: '#0d1117',
+        width: w, height: h,
+        windowWidth: w, windowHeight: h,
+      });
+    } finally {
+      document.body.removeChild(wrapper);
+    }
   };
 
   const exportKompPng = async () => {
-    if (!kompLayoutRef.current) return;
+    const btn = document.activeElement as HTMLElement;
+    btn?.blur();
     try {
-      const canvas = await html2canvas(kompLayoutRef.current, {
-        scale: 2, useCORS: true, allowTaint: true, logging: false,
-        backgroundColor: '#0d1117',
-      });
-      downloadBlob(canvas.toDataURL("image/png"), `karta_${kompTitle || "export"}_${Date.now()}.png`);
+      const canvas = await captureKomp();
+      canvas.toBlob(blob => {
+        if (!blob) { alert("PNG yaratishda xatolik"); return; }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `karta_${kompTitle || 'export'}_${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 400);
+      }, 'image/png');
     } catch (err) {
       alert("PNG yuklab bo'lmadi: " + (err as any)?.message);
     }
   };
 
   const exportKompPdf = async () => {
-    if (!kompLayoutRef.current) return;
+    const btn = document.activeElement as HTMLElement;
+    btn?.blur();
     try {
-      const canvas = await html2canvas(kompLayoutRef.current, {
-        scale: 2, useCORS: true, allowTaint: true, logging: false,
-        backgroundColor: '#0d1117',
-      });
+      const canvas = await captureKomp();
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
       const { jsPDF } = await import("jspdf");
       const orient = kompOrient === "landscape" ? "l" : "p";
       const pdf = new jsPDF({ orientation: orient as any, unit: "mm", format: kompPaper.toLowerCase() as any });
-      const w = pdf.internal.pageSize.getWidth();
-      const h = pdf.internal.pageSize.getHeight();
-      pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, w, h);
-      pdf.save(`karta_${kompTitle || "export"}_${Date.now()}.pdf`);
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+      pdf.addImage(dataUrl, "JPEG", 0, 0, pw, ph);
+      pdf.save(`karta_${kompTitle || 'export'}_${Date.now()}.pdf`);
     } catch (err) {
       alert("PDF yuklab bo'lmadi: " + (err as any)?.message);
     }
