@@ -13,6 +13,7 @@ import {
   schemeYlOrRd, schemeBlues, schemeGreens, schemeReds, schemePurples,
   schemeOranges, schemeRdYlGn, schemeSpectral, schemeBrBG, schemeYlGnBu
 } from "d3-scale-chromatic";
+import { BarChart, Bar, Cell, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { motion } from "motion/react";
 import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, TrendingUp, Crosshair, Database, Move } from "lucide-react";
 import { Marker } from "react-leaflet";
@@ -20,31 +21,31 @@ import { Marker } from "react-leaflet";
 /* ── Palettes ─────────────────────────────────────────────────────────────── */
 const COLOR_PALETTES: { [key: string]: { interpolator: any; scheme: any } } = {
   "Yellow-Orange-Red": { interpolator: interpolateYlOrRd, scheme: schemeYlOrRd },
-  "Viridis":           { interpolator: interpolateViridis, scheme: null },
-  "Magma":             { interpolator: interpolateMagma, scheme: null },
-  "Inferno":           { interpolator: interpolateInferno, scheme: null },
-  "Plasma":            { interpolator: interpolatePlasma, scheme: null },
-  "Blues":             { interpolator: interpolateBlues, scheme: schemeBlues },
-  "Greens":            { interpolator: interpolateGreens, scheme: schemeGreens },
-  "Reds":              { interpolator: interpolateReds, scheme: schemeReds },
-  "Purples":           { interpolator: interpolatePurples, scheme: schemePurples },
-  "Oranges":           { interpolator: interpolateOranges, scheme: schemeOranges },
-  "Cool":              { interpolator: interpolateCool, scheme: null },
-  "Warm":              { interpolator: interpolateWarm, scheme: null },
-  "Red-Yellow-Green":  { interpolator: interpolateRdYlGn, scheme: schemeRdYlGn },
-  "Spectral":          { interpolator: interpolateSpectral, scheme: schemeSpectral },
-  "Brown-BlueGreen":   { interpolator: interpolateBrBG, scheme: schemeBrBG },
+  "Viridis": { interpolator: interpolateViridis, scheme: null },
+  "Magma": { interpolator: interpolateMagma, scheme: null },
+  "Inferno": { interpolator: interpolateInferno, scheme: null },
+  "Plasma": { interpolator: interpolatePlasma, scheme: null },
+  "Blues": { interpolator: interpolateBlues, scheme: schemeBlues },
+  "Greens": { interpolator: interpolateGreens, scheme: schemeGreens },
+  "Reds": { interpolator: interpolateReds, scheme: schemeReds },
+  "Purples": { interpolator: interpolatePurples, scheme: schemePurples },
+  "Oranges": { interpolator: interpolateOranges, scheme: schemeOranges },
+  "Cool": { interpolator: interpolateCool, scheme: null },
+  "Warm": { interpolator: interpolateWarm, scheme: null },
+  "Red-Yellow-Green": { interpolator: interpolateRdYlGn, scheme: schemeRdYlGn },
+  "Spectral": { interpolator: interpolateSpectral, scheme: schemeSpectral },
+  "Brown-BlueGreen": { interpolator: interpolateBrBG, scheme: schemeBrBG },
   "Yellow-Green-Blue": { interpolator: interpolateYlGnBu, scheme: schemeYlGnBu },
 };
 
 /* ── Base maps ────────────────────────────────────────────────────────────── */
 const BASEMAPS: { [key: string]: { url: string; attribution: string; label: string } } = {
-  osm:       { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: "© OpenStreetMap", label: "OpenStreetMap" },
+  osm: { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: "© OpenStreetMap", label: "OpenStreetMap" },
   satellite: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", attribution: "© Esri", label: "Sputnik (Esri)" },
-  topo:      { url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", attribution: "© OpenTopoMap", label: "Topografik" },
-  light:     { url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", attribution: "© CartoDB", label: "Oq (CartoDB)" },
-  dark:      { url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", attribution: "© CartoDB", label: "Qora (CartoDB)" },
-  none:      { url: "", attribution: "", label: "Fonisiz" },
+  topo: { url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", attribution: "© OpenTopoMap", label: "Topografik" },
+  light: { url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", attribution: "© CartoDB", label: "Oq (CartoDB)" },
+  dark: { url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", attribution: "© CartoDB", label: "Qora (CartoDB)" },
+  none: { url: "", attribution: "", label: "Fonisiz" },
 };
 
 // Fix Leaflet icon
@@ -72,7 +73,7 @@ function FitBounds({ data }: { data: any }) {
 function CoordTracker({ onCoord }: { onCoord: (c: { lat: number; lng: number } | null) => void }) {
   useMapEvents({
     mousemove: (e) => onCoord({ lat: e.latlng.lat, lng: e.latlng.lng }),
-    mouseout:  () => onCoord(null),
+    mouseout: () => onCoord(null),
   });
   return null;
 }
@@ -82,9 +83,9 @@ function MapController({ action }: { action: string | null }) {
   const map = useMap();
   useEffect(() => {
     if (!action) return;
-    if (action === "zoomin")  map.zoomIn();
+    if (action === "zoomin") map.zoomIn();
     if (action === "zoomout") map.zoomOut();
-    if (action === "home")    map.setView([41.3, 63.9], 6);
+    if (action === "home") map.setView([41.3, 63.9], 6);
   }, [action, map]);
   return null;
 }
@@ -169,48 +170,133 @@ function MapLabels({ geoData, mapping, labelProperty, excelData, labelSize, isLa
   );
 }
 
+/* ── Region Mini Charts ──────────────────────────────────────────────────── */
+function RegionMiniCharts({ geoData, mapping, dataLookup, colorScale, stats, excelData, regionChartCols }: any) {
+  const [centers, setCenters] = useState<Record<string, { lat: number; lng: number }>>({});
+
+  useEffect(() => {
+    if (!geoData) return;
+    const newCenters: Record<string, { lat: number; lng: number }> = {};
+    const layer = L.geoJSON(geoData);
+    layer.eachLayer((l: any) => {
+      if (l.feature && l.getBounds) {
+        const key = normalizeKey(l.feature.properties[mapping.geoKey]);
+        newCenters[key] = l.getBounds().getCenter();
+      }
+    });
+    setCenters(newCenters);
+  }, [geoData, mapping.geoKey]);
+
+  const BAR_H = 30;
+  const BAR_W = 6;
+  const GAP = 2;
+  const COL_COLORS = ['#14b8a6', '#f97316', '#8b5cf6', '#ef4444', '#0ea5e9', '#f59e0b', '#10b981'];
+  const maxVal = stats.max || 1;
+
+  return (
+    <>
+      {geoData.features.map((feature: any) => {
+        const key = normalizeKey(feature.properties[mapping.geoKey]);
+        const pos = centers[key];
+        if (!pos) return null;
+
+        const excelRow = excelData?.find((r: any) => normalizeKey(r[mapping.excelKey]) === key);
+
+        let bars: { h: number; color: string; label: string }[] = [];
+
+        if (regionChartCols.length > 0 && excelRow) {
+          // Foydalanuvchi tanlagan ustunlar bo'yicha
+          bars = regionChartCols.map((col: string, i: number) => {
+            const v = parseFloat(excelRow[col]);
+            const val = isNaN(v) ? 0 : v;
+            // Per-column max for better visual
+            return { h: Math.max(2, (val / maxVal) * BAR_H), color: COL_COLORS[i % COL_COLORS.length], label: col };
+          });
+        } else {
+          // Standart: hozirgi valueKey bo'yicha bitta bar
+          const val = dataLookup.get(key);
+          if (val === undefined) return null;
+          bars = [{ h: Math.max(2, (val / maxVal) * BAR_H), color: colorScale(val), label: String(Math.round(val)) }];
+        }
+
+        if (bars.length === 0) return null;
+
+        const totalW = bars.length * (BAR_W + GAP) - GAP;
+        const svgRects = bars
+          .map((b, i) => {
+            const x = i * (BAR_W + GAP);
+            return `<rect x="${x}" y="${BAR_H - b.h}" width="${BAR_W}" height="${b.h}" fill="${b.color}" rx="1.5"/>`;
+          })
+          .join('');
+
+        const html = `
+          <div style="
+            background:transparent;
+            padding:2px 3px 0 3px;
+            pointer-events:none;
+          ">
+            <svg width="${totalW}" height="${BAR_H}" xmlns="http://www.w3.org/2000/svg">
+              ${svgRects}
+            </svg>
+          </div>`;
+
+        const iconW = totalW + 8;
+        const iconH = BAR_H + 6;
+        const icon = L.divIcon({
+          className: '',
+          html,
+          iconSize: [iconW, iconH],
+          iconAnchor: [iconW / 2, iconH / 2],
+        });
+
+        return <Marker key={`mc-${key}`} position={pos} icon={icon} interactive={false} />;
+      })}
+    </>
+  );
+}
+
 /* ── Stat.uz Indicator list ─────────────────────────────────────────────── */
 const STAT_INDICATORS: { id: string; label: string; unit: string }[] = [
   // Tug'ilish / vafot / nikoh
-  { id: "223", label: "Tug'ilganlar soni (jami)",                   unit: "kishi" },
-  { id: "224", label: "Tug'ilganlar soni (qiz bolalar)",            unit: "kishi" },
-  { id: "225", label: "Tug'ilganlar soni (o'g'il bolalar)",         unit: "kishi" },
-  { id: "226", label: "Vafot etganlar soni (jami)",                 unit: "kishi" },
-  { id: "227", label: "Vafot etganlar (ayollar)",                   unit: "kishi" },
-  { id: "228", label: "Vafot etganlar (erkaklar)",                  unit: "kishi" },
-  { id: "229", label: "O'lim koeffitsienti (jami)",                 unit: "" },
-  { id: "241", label: "Tug'ilish koeffitsienti (jami)",             unit: "" },
-  { id: "243", label: "Tuzilgan nikohlar (jami)",                   unit: "ta" },
-  { id: "230", label: "Nikohdan ajralishlar (jami)",                unit: "ta" },
-  { id: "238", label: "Ko'chib kelganlar (jami)",                   unit: "kishi" },
-  { id: "239", label: "Ko'chib ketganlar (jami)",                   unit: "kishi" },
-  { id: "268", label: "Ko'chib kelganlar xorijdan",                 unit: "kishi" },
-  { id: "269", label: "Ko'chib ketganlar xorijga",                  unit: "kishi" },
-  { id: "295", label: "Tug'ilishda kutilayotgan umr davomiyligi",   unit: "yil" },
-  { id: "665", label: "Tug'ilishning yig'indi koeffitsienti",       unit: "" },
+  { id: "223", label: "Tug'ilganlar soni (jami)", unit: "kishi" },
+  { id: "224", label: "Tug'ilganlar soni (qiz bolalar)", unit: "kishi" },
+  { id: "225", label: "Tug'ilganlar soni (o'g'il bolalar)", unit: "kishi" },
+  { id: "226", label: "Vafot etganlar soni (jami)", unit: "kishi" },
+  { id: "227", label: "Vafot etganlar (ayollar)", unit: "kishi" },
+  { id: "228", label: "Vafot etganlar (erkaklar)", unit: "kishi" },
+  { id: "229", label: "O'lim koeffitsienti (jami)", unit: "" },
+  { id: "241", label: "Tug'ilish koeffitsienti (jami)", unit: "" },
+  { id: "243", label: "Tuzilgan nikohlar (jami)", unit: "ta" },
+  { id: "230", label: "Nikohdan ajralishlar (jami)", unit: "ta" },
+  { id: "238", label: "Ko'chib kelganlar (jami)", unit: "kishi" },
+  { id: "239", label: "Ko'chib ketganlar (jami)", unit: "kishi" },
+  { id: "268", label: "Ko'chib kelganlar xorijdan", unit: "kishi" },
+  { id: "269", label: "Ko'chib ketganlar xorijga", unit: "kishi" },
+  { id: "295", label: "Tug'ilishda kutilayotgan umr davomiyligi", unit: "yil" },
+  { id: "665", label: "Tug'ilishning yig'indi koeffitsienti", unit: "" },
   // Aholi soni (asosiy)
-  { id: "244", label: "Doimiy aholi (ayol)",                        unit: "ming kishi" },
-  { id: "245", label: "Doimiy aholi (erkak)",                       unit: "ming kishi" },
-  { id: "246", label: "Doimiy aholi (jami)",                        unit: "ming kishi" },
-  { id: "247", label: "Doimiy aholi (qishloq)",                     unit: "ming kishi" },
-  { id: "248", label: "Doimiy aholi (shahar)",                      unit: "ming kishi" },
-  { id: "236", label: "Aholi zichligi",                             unit: "kishi/km²" },
-  { id: "2835",label: "Mehnatga layoqatli yoshdagi aholi",          unit: "ming kishi" },
+  { id: "244", label: "Doimiy aholi (ayol)", unit: "ming kishi" },
+  { id: "245", label: "Doimiy aholi (erkak)", unit: "ming kishi" },
+  { id: "246", label: "Doimiy aholi (jami)", unit: "ming kishi" },
+  { id: "247", label: "Doimiy aholi (qishloq)", unit: "ming kishi" },
+  { id: "248", label: "Doimiy aholi (shahar)", unit: "ming kishi" },
+  { id: "236", label: "Aholi zichligi", unit: "kishi/km²" },
+  { id: "2835", label: "Mehnatga layoqatli yoshdagi aholi", unit: "ming kishi" },
   // Yosh guruhlari
-  { id: "561", label: "0–2 yoshdagi aholi",                         unit: "ming kishi" },
-  { id: "2838",label: "3–5 yoshdagi aholi",                         unit: "ming kishi" },
-  { id: "589", label: "6–7 yoshdagi aholi",                         unit: "ming kishi" },
-  { id: "600", label: "8–15 yoshdagi aholi",                        unit: "ming kishi" },
-  { id: "607", label: "16–17 yoshdagi aholi",                       unit: "ming kishi" },
-  { id: "617", label: "18–19 yoshdagi aholi",                       unit: "ming kishi" },
-  { id: "626", label: "20–24 yoshdagi aholi",                       unit: "ming kishi" },
-  { id: "632", label: "25–29 yoshdagi aholi",                       unit: "ming kishi" },
-  { id: "638", label: "30–34 yoshdagi aholi",                       unit: "ming kishi" },
-  { id: "643", label: "35–39 yoshdagi aholi",                       unit: "ming kishi" },
-  { id: "647", label: "40–49 yoshdagi aholi",                       unit: "ming kishi" },
-  { id: "650", label: "50–59 yoshdagi aholi",                       unit: "ming kishi" },
-  { id: "1190",label: "60–64 yoshdagi aholi",                       unit: "ming kishi" },
-  { id: "1191",label: "65+ yoshdagi aholi",                         unit: "ming kishi" },
+  { id: "561", label: "0–2 yoshdagi aholi", unit: "ming kishi" },
+  { id: "2838", label: "3–5 yoshdagi aholi", unit: "ming kishi" },
+  { id: "589", label: "6–7 yoshdagi aholi", unit: "ming kishi" },
+  { id: "600", label: "8–15 yoshdagi aholi", unit: "ming kishi" },
+  { id: "607", label: "16–17 yoshdagi aholi", unit: "ming kishi" },
+  { id: "617", label: "18–19 yoshdagi aholi", unit: "ming kishi" },
+  { id: "626", label: "20–24 yoshdagi aholi", unit: "ming kishi" },
+  { id: "632", label: "25–29 yoshdagi aholi", unit: "ming kishi" },
+  { id: "638", label: "30–34 yoshdagi aholi", unit: "ming kishi" },
+  { id: "643", label: "35–39 yoshdagi aholi", unit: "ming kishi" },
+  { id: "647", label: "40–49 yoshdagi aholi", unit: "ming kishi" },
+  { id: "650", label: "50–59 yoshdagi aholi", unit: "ming kishi" },
+  { id: "1190", label: "60–64 yoshdagi aholi", unit: "ming kishi" },
+  { id: "1191", label: "65+ yoshdagi aholi", unit: "ming kishi" },
 ];
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -221,44 +307,73 @@ const normalizeKey = (str: any) => String(str || "").toLowerCase().trim().replac
 
 export default function App() {
   /* state */
-  const [geoData, setGeoData]               = useState<any>(null);
-  const [excelData, setExcelData]           = useState<ExcelRow[]>([]);
-  const [excelColumns, setExcelColumns]     = useState<string[]>([]);
-  const [geoProperties, setGeoProperties]   = useState<string[]>([]);
-  const [mapping, setMapping]               = useState<Mapping>({ geoKey: "", excelKey: "", valueKey: "" });
+  const [geoData, setGeoData] = useState<any>(null);
+  const [excelData, setExcelData] = useState<ExcelRow[]>([]);
+  const [excelColumns, setExcelColumns] = useState<string[]>([]);
+  const [geoProperties, setGeoProperties] = useState<string[]>([]);
+  const [mapping, setMapping] = useState<Mapping>({ geoKey: "", excelKey: "", valueKey: "" });
   const [showAttributeKey, setShowAttributeKey] = useState<string>("");
-  const [activeTab, setActiveTab]           = useState<"upload" | "map">("upload");
-  const [mapTitle, setMapTitle]             = useState<string>("GeoVizor Xaritasi");
-  const [colorPalette, setColorPalette]     = useState<keyof typeof COLOR_PALETTES>("Yellow-Orange-Red");
-  const [borderWidth, setBorderWidth]       = useState<number>(1);
+  const [activeTab, setActiveTab] = useState<"upload" | "map">("upload");
+  const [mapTitle, setMapTitle] = useState<string>("GeoVizor Xaritasi");
+  const [colorPalette, setColorPalette] = useState<keyof typeof COLOR_PALETTES>("Yellow-Orange-Red");
+  const [borderWidth, setBorderWidth] = useState<number>(1);
 
-  const [baseMapKey, setBaseMapKey]         = useState<string>("osm");
+  const [baseMapKey, setBaseMapKey] = useState<string>("osm");
   const [classificationType, setClassificationType] = useState<"continuous" | "equal" | "quantile">("continuous");
-  const [numClasses, setNumClasses]         = useState<number>(5);
-  const [labelProperty, setLabelProperty]   = useState<string>("");
-  const [leftPanelOpen, setLeftPanelOpen]   = useState(true);
+  const [numClasses, setNumClasses] = useState<number>(5);
+  const [labelProperty, setLabelProperty] = useState<string>("");
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
-  const [valueUnit, setValueUnit]           = useState<string>("ming kishi");
-  const [fillOpacity, setFillOpacity]       = useState<number>(0.75);
-  const [coord, setCoord]                   = useState<{ lat: number; lng: number } | null>(null);
-  const [zoom, setZoom]                     = useState<number>(6);
-  const [mapAction, setMapAction]           = useState<string | null>(null);
-  const [labelSize, setLabelSize]           = useState<number>(11);
+  const [valueUnit, setValueUnit] = useState<string>("ming kishi");
+  const [fillOpacity, setFillOpacity] = useState<number>(0.75);
+  const [coord, setCoord] = useState<{ lat: number; lng: number } | null>(null);
+  const [zoom, setZoom] = useState<number>(6);
+  const [mapAction, setMapAction] = useState<string | null>(null);
+  const [labelSize, setLabelSize] = useState<number>(11);
   const [selectedFeature, setSelectedFeature] = useState<any>(null);
-  const [rightTab, setRightTab]             = useState<"attributes" | "info" | "chart">("attributes");
-  const [searchQuery, setSearchQuery]       = useState<string>("");
-  const [isLabelMode, setIsLabelMode]       = useState<boolean>(false);
+  const [rightTab, setRightTab] = useState<"attributes" | "info" | "chart">("attributes");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isLabelMode, setIsLabelMode] = useState<boolean>(false);
   const layoutMode = false;
   const [labelPositions, setLabelPositions] = useState<Record<string, { lat: number; lng: number }>>({});
   const [selectedIndicator, setSelectedIndicator] = useState<string>("246");
-  const [isFetchingApi, setIsFetchingApi]          = useState(false);
-  const [showGrid, setShowGrid]                     = useState<boolean>(true);
-  const [showScale, setShowScale]                   = useState<boolean>(true);
-  const [showNorthArrow, setShowNorthArrow]         = useState<boolean>(true);
-  const [showCoordinates, setShowCoordinates]       = useState<boolean>(true);
-  const [legendPosition, setLegendPosition]         = useState<"br" | "bl" | "tr" | "tl">("br");
-  const [showAttribution, setShowAttribution]       = useState<boolean>(true);
+  const [isFetchingApi, setIsFetchingApi] = useState(false);
+  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [showScale, setShowScale] = useState<boolean>(true);
+  const [showNorthArrow, setShowNorthArrow] = useState<boolean>(true);
+  const [showCoordinates, setShowCoordinates] = useState<boolean>(true);
+  const [legendPosition, setLegendPosition] = useState<"br" | "bl" | "tr" | "tl">("br");
+  const [showAttribution, setShowAttribution] = useState<boolean>(true);
   const mapRef = useRef<HTMLDivElement>(null);
+
+  // Multi-year data support
+  const [selectedYears, setSelectedYears] = useState<string[]>(["2025", "2024", "2023"]);
+  const [multiYearData, setMultiYearData] = useState<{ [year: string]: ExcelRow[] }>({});
+  const [chartDataByYear, setChartDataByYear] = useState<{ [key: string]: { [year: string]: number } }>({});
+  const [showMapChart, setShowMapChart] = useState<boolean>(false);
+  const [showRegionCharts, setShowRegionCharts] = useState<boolean>(false);
+  const [regionChartCols, setRegionChartCols] = useState<string[]>([]);
+  const [cacheSource, setCacheSource] = useState<"" | "localStorage" | "server" | "network">("")
+
+  /* ── localStorage cache helpers ────────────────────────────────────────── */
+  const LS_TTL = 60 * 60 * 1000; // 1 soat
+  const lsGet = (key: string) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const { t, d } = JSON.parse(raw);
+      if (Date.now() - t > LS_TTL) { localStorage.removeItem(key); return null; }
+      return d;
+    } catch { return null; }
+  };
+  const lsSet = (key: string, data: any) => {
+    try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), d: data })); } catch { }
+  };
+  const lsClear = () => {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith("geovizor_api_"));
+    keys.forEach(k => localStorage.removeItem(k));
+    return keys.length;
+  };
 
   /* ── File handlers ─────────────────────────────────────────────────────── */
   const handleGeoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -299,34 +414,76 @@ export default function App() {
   };
 
   const fetchApiData = async () => {
-    if (!selectedIndicator) return;
+    if (!selectedIndicator || selectedYears.length === 0) return;
     setIsFetchingApi(true);
+    setCacheSource("");
     const indicatorMeta = STAT_INDICATORS.find(i => i.id === selectedIndicator);
+    const lsKey = `geovizor_api_${selectedIndicator}`;
+
+    const processData = (json: any, source: "localStorage" | "server" | "network") => {
+      if (json && json[0] && json[0].data) {
+        const data = json[0].data as ExcelRow[];
+        const cols = Object.keys(data[0] || {});
+        const geoKeyCol = cols.includes("Klassifikator") ? "Klassifikator" : cols[0];
+        const newChartDataByYear: { [key: string]: { [year: string]: number } } = {};
+        const newMultiYearData: { [year: string]: ExcelRow[] } = {};
+
+        selectedYears.forEach(year => { newMultiYearData[year] = data; });
+
+        data.forEach((row: ExcelRow) => {
+          const regionKey = normalizeKey(row[geoKeyCol]);
+          if (!regionKey) return;
+          selectedYears.forEach(year => {
+            const value = parseFloat(row[year]);
+            if (!isNaN(value)) {
+              if (!newChartDataByYear[regionKey]) newChartDataByYear[regionKey] = {};
+              newChartDataByYear[regionKey][year] = value;
+            }
+          });
+        });
+
+        const latestYear = selectedYears[0];
+        setExcelData(data);
+        setMultiYearData(newMultiYearData);
+        setChartDataByYear(newChartDataByYear);
+        setExcelColumns(cols);
+        setMapping(prev => ({ ...prev, excelKey: geoKeyCol, valueKey: latestYear }));
+        if (indicatorMeta?.unit) setValueUnit(indicatorMeta.unit);
+        if (indicatorMeta?.label) {
+          const yearLabel = selectedYears.length > 1
+            ? `${indicatorMeta.label} (${selectedYears.join(", ")})`
+            : `${indicatorMeta.label} (${latestYear})`;
+          setMapTitle(yearLabel);
+        }
+        setCacheSource(source);
+        return true;
+      }
+      return false;
+    };
+
     try {
-      // Use the server-side proxy to avoid CORS issues
+      // 1️⃣ localStorage keshidan o'qish
+      const lsCached = lsGet(lsKey);
+      if (lsCached) {
+        console.log("[Cache] localStorage HIT:", lsKey);
+        if (processData(lsCached, "localStorage")) {
+          setIsFetchingApi(false);
+          return;
+        }
+      }
+
+      // 2️⃣ Server proxy orqali yuklash (server o'zi disk kesh ishlatadi)
       const targetUrl = `https://api.siat.stat.uz/media/uploads/sdmx/sdmx_data_${selectedIndicator}.json`;
       const res = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`);
+      const fromServerCache = res.headers.get("X-Cache") === "HIT";
       if (!res.ok) throw new Error(`Server xatosi: ${res.status}`);
       const json = await res.json();
-      if (json && json[0] && json[0].data) {
-        const data = json[0].data;
-        setExcelData(data);
-        if (data.length > 0) {
-          const cols = Object.keys(data[0]);
-          setExcelColumns(cols);
-          // Find last year column (numeric key like "2024")
-          const yearCols = cols.filter(c => /^\d{4}$/.test(c));
-          const lastYear = yearCols[yearCols.length - 1] || cols[cols.length - 1];
-          setMapping(prev => ({
-            ...prev,
-            excelKey: cols.includes("Klassifikator") ? "Klassifikator" : cols[0],
-            valueKey: lastYear,
-          }));
-          // Auto-fill unit from indicator metadata
-          if (indicatorMeta?.unit) setValueUnit(indicatorMeta.unit);
-          // Auto-fill map title
-          if (indicatorMeta?.label) setMapTitle(`${indicatorMeta.label} (${lastYear})`);
-        }
+
+      const source = fromServerCache ? "server" : "network";
+      if (processData(json, source)) {
+        // localStorage ga ham saqlash
+        lsSet(lsKey, json);
+        console.log(`[Cache] localStorage WRITE: ${lsKey} (manba: ${source})`);
       } else {
         alert("Noto'g'ri ma'lumot formati. Ushbu indikator kodi uchun ma'lumot topilmadi.");
       }
@@ -471,7 +628,7 @@ export default function App() {
 
   const filteredData = useMemo(() =>
     rankedData.filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  , [rankedData, searchQuery]);
+    , [rankedData, searchQuery]);
 
 
 
@@ -496,7 +653,7 @@ export default function App() {
         <div className="flex items-center gap-0.5 px-3 border-r border-slate-800">
           {[
             { id: "upload", label: "Ma'lumotlar", icon: Upload },
-            { id: "map",    label: "Xarita",      icon: MapIcon, disabled: !geoData },
+            { id: "map", label: "Xarita", icon: MapIcon, disabled: !geoData },
           ].map(({ id, label, icon: Icon, disabled }) => (
             <button
               key={id}
@@ -516,9 +673,9 @@ export default function App() {
         {activeTab === "map" && (
           <div className="flex items-center gap-0.5 px-3 border-r border-slate-800">
             {[
-              { id: "zoomin",  icon: ZoomIn,    title: "Kattalashtirish" },
-              { id: "zoomout", icon: ZoomOut,   title: "Kichiklashtirish" },
-              { id: "home",    icon: Home,      title: "Boshlanish holatiga qaytish" },
+              { id: "zoomin", icon: ZoomIn, title: "Kattalashtirish" },
+              { id: "zoomout", icon: ZoomOut, title: "Kichiklashtirish" },
+              { id: "home", icon: Home, title: "Boshlanish holatiga qaytish" },
             ].map(({ id, icon: Icon, title }) => (
               <button key={id} title={title}
                 onClick={() => { setMapAction(id); setTimeout(() => setMapAction(null), 100); }}
@@ -526,6 +683,25 @@ export default function App() {
                 <Icon size={13} />
               </button>
             ))}
+            <button
+              title={showMapChart ? "Xarita grafikini yashirish" : "Xarita grafikini ko'rsatish"}
+              onClick={() => setShowMapChart(v => !v)}
+              className={cn("p-1.5 rounded transition-colors",
+                showMapChart ? "bg-teal-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-700"
+              )}
+            >
+              <BarChart2 size={13} />
+            </button>
+            <button
+              title={showRegionCharts ? "Viloyat chartlarini yashirish" : "Viloyat chartlarini ko'rsatish"}
+              onClick={() => setShowRegionCharts(v => !v)}
+              className={cn("p-1.5 rounded transition-colors flex items-center gap-1 text-[10px] font-bold",
+                showRegionCharts ? "bg-violet-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-700"
+              )}
+            >
+              <BarChart2 size={13} />
+              <span>Hz</span>
+            </button>
           </div>
         )}
 
@@ -594,7 +770,7 @@ export default function App() {
                   <div className="text-center w-full">
                     <p className="font-bold text-[13px] text-white mb-2">API dan yuklash</p>
                     <div className="flex flex-col gap-2 w-full mt-1">
-                      <select 
+                      <select
                         value={selectedIndicator}
                         onChange={e => setSelectedIndicator(e.target.value)}
                         className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-teal-500"
@@ -605,12 +781,37 @@ export default function App() {
                           </option>
                         ))}
                       </select>
-                      <button 
+
+                      <button
                         onClick={fetchApiData}
-                        disabled={isFetchingApi || !selectedIndicator}
+                        disabled={isFetchingApi || !selectedIndicator || selectedYears.length === 0}
                         className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white rounded px-3 py-1.5 text-xs font-bold transition-colors w-full"
                       >
                         {isFetchingApi ? "Yuklanmoqda..." : "Yuklash"}
+                      </button>
+
+                      {/* Cache source badge */}
+                      {cacheSource && (
+                        <div className={cn(
+                          "flex items-center justify-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold border",
+                          cacheSource === "localStorage" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                            cacheSource === "server" ? "bg-sky-500/10 text-sky-400 border-sky-500/30" :
+                              "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                        )}>
+                          <span>{cacheSource === "localStorage" ? "⚡ Brauzer keshidan" : cacheSource === "server" ? "💾 Server keshidan" : "🌐 Tarmoqdan yuklandi"}</span>
+                        </div>
+                      )}
+
+                      {/* Clear cache button */}
+                      <button
+                        onClick={() => {
+                          const n = lsClear();
+                          setCacheSource("");
+                          alert(`${n} ta brauzer keshi tozalandi`);
+                        }}
+                        className="text-[10px] text-slate-600 hover:text-red-400 transition-colors underline"
+                      >
+                        Brauzer keshini tozalash
                       </button>
                     </div>
                   </div>
@@ -760,8 +961,8 @@ export default function App() {
                       <div className="grid grid-cols-3 gap-1 mb-2">
                         {([
                           { k: "continuous", l: "Uzluksiz" },
-                          { k: "equal",      l: "Teng" },
-                          { k: "quantile",   l: "Kvantil" },
+                          { k: "equal", l: "Teng" },
+                          { k: "quantile", l: "Kvantil" },
                         ] as const).map(({ k, l }) => (
                           <button key={k} onClick={() => setClassificationType(k)}
                             className={cn("py-1.5 rounded text-[10px] font-semibold transition-all border",
@@ -791,10 +992,10 @@ export default function App() {
                       <select value={labelProperty} onChange={e => setLabelProperty(e.target.value)}
                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-[11px] text-slate-200 outline-none appearance-none cursor-pointer hover:border-slate-600 transition-colors mb-2">
                         <option value="" className="bg-slate-900">Ko'rsatmaslik</option>
-                        {excelColumns.map(c => <option key={"e-"+c} value={c} className="bg-slate-900">{c} (Excel)</option>)}
-                        {geoProperties.map(p => <option key={"g-"+p} value={p} className="bg-slate-900">{p} (GeoJSON)</option>)}
+                        {excelColumns.map(c => <option key={"e-" + c} value={c} className="bg-slate-900">{c} (Excel)</option>)}
+                        {geoProperties.map(p => <option key={"g-" + p} value={p} className="bg-slate-900">{p} (GeoJSON)</option>)}
                       </select>
-                      
+
                       {labelProperty && (
                         <div>
                           <div className="flex justify-between text-[10px] mb-1.5 mt-2">
@@ -805,15 +1006,15 @@ export default function App() {
                             onChange={e => setLabelSize(parseInt(e.target.value))}
                             className="w-full h-1 bg-slate-700 rounded-full appearance-none accent-purple-500" />
                           <div className="flex justify-between text-[9px] text-slate-700 mt-0.5"><span>8px</span><span>24px</span></div>
-                          
+
                           {/* Toggle for Label movement */}
                           <div className="mt-3 flex items-center justify-between bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/50">
                             <div className="flex items-center gap-1.5">
                               <Move size={12} className={cn("transition-colors", isLabelMode ? "text-teal-400" : "text-slate-500")} />
                               <span className="text-[10px] font-bold text-slate-300">Yozuvni surish</span>
                             </div>
-                            <button onClick={() => setIsLabelMode(!isLabelMode)} 
-                              className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all shadow-sm", 
+                            <button onClick={() => setIsLabelMode(!isLabelMode)}
+                              className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all shadow-sm",
                                 isLabelMode ? "bg-teal-500 text-white border border-teal-400" : "bg-slate-700 text-slate-400 border border-slate-600 hover:bg-slate-600 hover:text-white"
                               )}>
                               {isLabelMode ? "Yoniq" : "O'chiq"}
@@ -838,6 +1039,46 @@ export default function App() {
                       </div>
                     </div>
 
+                    {/* Region chart column selector */}
+                    {excelColumns.length > 0 && (
+                      <div>
+                        <SLabel icon={BarChart2} label="Viloyat chart ustunlari" color="bg-violet-500" />
+                        <div className="text-[9px] text-slate-600 mb-2">
+                          Viloyatlar ustida ko'rsatiladigan ustun(lar)ni tanlang:
+                        </div>
+                        <div className="space-y-1 max-h-36 overflow-y-auto scrollbar-hide pr-1">
+                          {excelColumns.map(col => (
+                            <label key={col} className="flex items-center gap-2 cursor-pointer group py-0.5">
+                              <input
+                                type="checkbox"
+                                checked={regionChartCols.includes(col)}
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    setRegionChartCols(prev => [...prev, col]);
+                                  } else {
+                                    setRegionChartCols(prev => prev.filter(c => c !== col));
+                                  }
+                                }}
+                                className="w-3 h-3 rounded accent-violet-500 cursor-pointer shrink-0"
+                              />
+                              <span className={cn(
+                                "text-[10px] font-medium truncate transition-colors",
+                                regionChartCols.includes(col) ? "text-violet-300" : "text-slate-500 group-hover:text-slate-300"
+                              )}>{col}</span>
+                            </label>
+                          ))}
+                        </div>
+                        {regionChartCols.length > 0 && (
+                          <button
+                            onClick={() => setRegionChartCols([])}
+                            className="mt-1.5 text-[9px] text-slate-700 hover:text-red-400 transition-colors underline"
+                          >
+                            Tanlovni tozalash
+                          </button>
+                        )}
+                      </div>
+                    )}
+
                   </div>
                 </>
               ) : (
@@ -854,7 +1095,7 @@ export default function App() {
 
             {/* ── MAP ─────────────────────────────────────────────────── */}
             <section className={cn("flex-1 relative flex flex-col overflow-hidden", layoutMode ? "bg-[#0a0f18] p-4 sm:p-12 overflow-auto items-center justify-center" : "")}>
-              
+
               {layoutMode && (
                 <div className="absolute top-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
                   <div className="bg-teal-500/20 text-teal-400 px-4 py-1.5 rounded-full border border-teal-500/30 text-xs font-bold uppercase tracking-widest pointer-events-auto shadow-lg backdrop-blur-sm">
@@ -878,16 +1119,27 @@ export default function App() {
                       <GeoJSON data={geoData} style={getStyle} onEachFeature={onEachFeature}
                         key={`${colorPalette}-${classificationType}-${numClasses}-${fillOpacity}-${borderWidth}-${labelProperty}`} />
                       <FitBounds data={geoData} />
-                      <MapLabels 
-                        geoData={geoData} 
-                        mapping={mapping} 
-                        labelProperty={labelProperty} 
-                        excelData={excelData} 
+                      <MapLabels
+                        geoData={geoData}
+                        mapping={mapping}
+                        labelProperty={labelProperty}
+                        excelData={excelData}
                         labelSize={labelSize}
                         isLabelMode={isLabelMode}
                         labelPositions={labelPositions}
                         setLabelPositions={setLabelPositions}
                       />
+                      {showRegionCharts && (
+                        <RegionMiniCharts
+                          geoData={geoData}
+                          mapping={mapping}
+                          dataLookup={dataLookup}
+                          colorScale={colorScale}
+                          stats={stats}
+                          excelData={excelData}
+                          regionChartCols={regionChartCols}
+                        />
+                      )}
                     </>
                   )}
                 </MapContainer>
@@ -897,7 +1149,7 @@ export default function App() {
                   <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
                     <div className="bg-[#ffffff]/90 backdrop-blur-sm px-6 py-2.5 rounded-xl border border-[#e2e8f0]/50 shadow-lg text-center">
                       <h1 className="text-xl font-extrabold text-[#1e293b] tracking-tight">{mapTitle}</h1>
-                      {mapping.valueKey && <p className="text-[10px] font-bold text-[#64748b] uppercase tracking-widest mt-0.5">{mapping.valueKey} y.</p>}
+                      {mapping.valueKey && <p className="text-[10px] font-bold text-white uppercase tracking-widest mt-0.5">{mapping.valueKey}</p>}
                     </div>
                   </div>
                 )}
@@ -915,7 +1167,7 @@ export default function App() {
                     {classificationType === "continuous" ? (
                       <div>
                         <div className="h-2.5 w-full rounded"
-                          style={{ background: `linear-gradient(to right, ${colorScale(stats.min)}, ${colorScale((stats.min+stats.max)/2)}, ${colorScale(stats.max)})` }} />
+                          style={{ background: `linear-gradient(to right, ${colorScale(stats.min)}, ${colorScale((stats.min + stats.max) / 2)}, ${colorScale(stats.max)})` }} />
                         <div className="flex justify-between font-mono text-[9px] text-[#64748b] mt-1.5">
                           <span>{stats.min.toLocaleString()}</span>
                           <span>{stats.max.toLocaleString()}</span>
@@ -943,6 +1195,120 @@ export default function App() {
                     )}
                   </div>
                 </div>
+
+                {/* ── Region Chart Legend ─────────────────────────────── */}
+                {showRegionCharts && regionChartCols.length > 0 && (
+                  <div className="absolute top-24 left-3 z-[1000] bg-[#151824]/95 backdrop-blur-sm rounded-lg border border-slate-700/50 shadow-xl p-3 pointer-events-none">
+                    <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                      Viloyat chart izoh
+                    </div>
+                    <div className="space-y-1.5">
+                      {regionChartCols.map((col: string, i: number) => {
+                        const COL_COLORS = ['#14b8a6', '#f97316', '#8b5cf6', '#ef4444', '#0ea5e9', '#f59e0b', '#10b981'];
+                        return (
+                          <div key={col} className="flex items-center gap-2">
+                            <div
+                              className="w-4 h-3 rounded-sm shrink-0"
+                              style={{ background: COL_COLORS[i % COL_COLORS.length] }}
+                            />
+                            <span className="text-[9px] text-slate-300 font-medium">{col}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Map Chart Overlay ─────────────────────────────── */}}
+                {showMapChart && rankedData.length > 0 && (
+                  <div
+                    className="absolute bottom-10 left-3 z-[1000] bg-[#0f1624]/96 backdrop-blur-sm rounded-xl border border-slate-700/40 shadow-2xl"
+                    style={{ width: 290 }}
+                  >
+                    {/* Header */}
+                    <div className="px-3 pt-3 pb-1 border-b border-slate-800/60">
+                      <div className="text-[10px] font-bold text-slate-200 truncate">
+                        {mapping.valueKey || "Qiymat"}
+                      </div>
+                      <div className="text-[9px] text-slate-600">{valueUnit}</div>
+                    </div>
+
+                    {/* Chart area */}
+                    {regionChartCols.length > 1 ? (
+                      /* Multi-series: regionChartCols ustunlari bo'yicha */
+                      <div className="p-2">
+                        <ResponsiveContainer width="100%" height={200}>
+                          <BarChart
+                            data={rankedData.slice(0, 12).map((d: any) => {
+                              const exRow = excelData.find((r: any) => normalizeKey(r[mapping.excelKey]) === d.key);
+                              const COL_COLORS = ['#14b8a6', '#f97316', '#8b5cf6', '#ef4444', '#0ea5e9', '#f59e0b', '#10b981'];
+                              const colVals: any = { name: d.name.length > 8 ? d.name.slice(0, 8) + '…' : d.name };
+                              regionChartCols.forEach((col: string) => {
+                                colVals[col] = exRow ? parseFloat(exRow[col]) || 0 : 0;
+                              });
+                              return colVals;
+                            })}
+                            margin={{ top: 10, right: 8, left: -22, bottom: 42 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                            <XAxis dataKey="name" tick={{ fill: '#475569', fontSize: 7 }} angle={-45} textAnchor="end" interval={0} />
+                            <YAxis tick={{ fill: '#475569', fontSize: 7 }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', fontSize: '10px' }}
+                              labelStyle={{ color: '#e2e8f0' }}
+                              formatter={(v: any) => v?.toLocaleString()}
+                            />
+                            {regionChartCols.map((col: string, i: number) => {
+                              const COL_COLORS = ['#14b8a6', '#f97316', '#8b5cf6', '#ef4444', '#0ea5e9', '#f59e0b', '#10b981'];
+                              return (
+                                <Bar key={col} dataKey={col} name={col} fill={COL_COLORS[i % COL_COLORS.length]} radius={[2, 2, 0, 0]} maxBarSize={10}>
+                                  <LabelList dataKey={col} position="top" style={{ fill: '#64748b', fontSize: 6 }} formatter={(v: any) => v > 0 ? v.toLocaleString() : ''} />
+                                </Bar>
+                              );
+                            })}
+                          </BarChart>
+                        </ResponsiveContainer>
+                        {/* Legend */}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 px-1 pb-1">
+                          {regionChartCols.map((col: string, i: number) => {
+                            const COL_COLORS = ['#14b8a6', '#f97316', '#8b5cf6', '#ef4444', '#0ea5e9', '#f59e0b', '#10b981'];
+                            return (
+                              <div key={col} className="flex items-center gap-1">
+                                <div className="w-2.5 h-2 rounded-sm" style={{ background: COL_COLORS[i % COL_COLORS.length] }} />
+                                <span className="text-[8px] text-slate-500">{col}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Single series */
+                      <div className="p-2">
+                        <ResponsiveContainer width="100%" height={185}>
+                          <BarChart
+                            data={rankedData.slice(0, 14).map((d: any) => ({ name: d.name.length > 8 ? d.name.slice(0, 8) + '…' : d.name, val: d.val, color: d.color }))}
+                            margin={{ top: 14, right: 6, left: -22, bottom: 42 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                            <XAxis dataKey="name" tick={{ fill: '#475569', fontSize: 7 }} angle={-45} textAnchor="end" interval={0} />
+                            <YAxis tick={{ fill: '#475569', fontSize: 7 }} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', fontSize: '10px' }}
+                              labelStyle={{ color: '#e2e8f0' }}
+                              formatter={(v: any) => [v?.toLocaleString(), mapping.valueKey]}
+                            />
+                            <Bar dataKey="val" radius={[2, 2, 0, 0]}>
+                              {rankedData.slice(0, 14).map((entry: any, index: number) => (
+                                <Cell key={index} fill={entry.color} />
+                              ))}
+                              <LabelList dataKey="val" position="top" style={{ fill: '#64748b', fontSize: 6 }} formatter={(v: any) => v?.toLocaleString()} />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* ── No data warning ───────────────────────────────── */}
                 {!geoData && (
@@ -1010,10 +1376,10 @@ export default function App() {
                       {/* Stats summary bar */}
                       <div className="px-3 py-2 border-b border-slate-800 grid grid-cols-4 gap-1">
                         {[
-                          { l: "Jami",      v: stats.total.toLocaleString(),  c: "text-teal-400" },
-                          { l: "Kichigi",   v: stats.min.toLocaleString(),    c: "text-sky-400" },
-                          { l: "Kattasi",   v: stats.max.toLocaleString(),    c: "text-red-400" },
-                          { l: "O'rtacha",  v: stats.avg.toLocaleString(),    c: "text-amber-400" },
+                          { l: "Jami", v: stats.total.toLocaleString(), c: "text-teal-400" },
+                          { l: "Kichigi", v: stats.min.toLocaleString(), c: "text-sky-400" },
+                          { l: "Kattasi", v: stats.max.toLocaleString(), c: "text-red-400" },
+                          { l: "O'rtacha", v: stats.avg.toLocaleString(), c: "text-amber-400" },
                         ].map(({ l, v, c }) => (
                           <div key={l} className="text-center">
                             <div className={cn("text-[11px] font-bold tabular-nums", c)}>{v}</div>
@@ -1091,46 +1457,85 @@ export default function App() {
                       </div>
                     </div>
                   ) : rightTab === "chart" ? (
-                    /* ── Bar Chart Tab ────────────────────────────── */
-                    <div className="flex-1 overflow-y-auto p-3 scrollbar-hide">
-                      <div className="flex items-center gap-2 mb-3">
+                    /* ── Bar Chart Tab with Multi-Year ────────────────────────────── */
+                    <div className="flex-1 flex flex-col overflow-hidden p-3">
+                      <div className="flex items-center gap-2 mb-3 shrink-0">
                         <TrendingUp size={12} className="text-teal-400" />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Top 12 hudud</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          {selectedYears.length > 1 ? "Yillar bo'yicha taqqoslash" : "Top 12 hudud"}
+                        </span>
                       </div>
-                      <div className="bg-slate-800/40 rounded-xl border border-slate-700/40 p-3 pt-2">
-                        <div className="space-y-1.5">
-                          {rankedData.slice(0, 12).map((item, index) => {
-                            const maxVal = rankedData[0]?.val || 1;
-                            const percentage = (item.val / maxVal) * 100;
-                            return (
-                              <div key={item.key} className="group cursor-pointer"
-                                onClick={() => { setSelectedFeature({ name: item.name, value: item.val, unit: valueUnit, key: item.key }); setRightTab("info"); }}>
-                                <div className="flex items-center justify-between mb-0.5">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-[9px] font-mono text-slate-600 w-4 shrink-0 text-right">{index + 1}</span>
-                                    <span className="text-[11px] font-semibold text-slate-300 truncate group-hover:text-white transition-colors">{item.name}</span>
-                                  </div>
-                                  <span className="text-[10px] font-bold text-slate-400 tabular-nums ml-2 shrink-0 group-hover:text-teal-300 transition-colors">
-                                    {item.val.toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="ml-6 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                  <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${percentage}%` }}
-                                    transition={{ duration: 0.6, delay: index * 0.03 }}
-                                    className="h-full rounded-full"
-                                    style={{ backgroundColor: item.color }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
+                      {selectedYears.length > 1 && Object.keys(chartDataByYear).length > 0 ? (
+                        <div className="flex-1 overflow-y-auto scrollbar-hide bg-slate-800/40 rounded-xl border border-slate-700/40 p-4">
+                          <ResponsiveContainer width="100%" height={Math.max(300, Object.keys(chartDataByYear).length * 30)}>
+                            <BarChart
+                              data={Object.entries(chartDataByYear)
+                                .sort((a, b) => {
+                                  const sumA = Object.values(a[1] as any).reduce((x: any, y: any) => x + y, 0);
+                                  const sumB = Object.values(b[1] as any).reduce((x: any, y: any) => x + y, 0);
+                                  return sumB - sumA;
+                                })
+                                .slice(0, 15)
+                                .map(([key, values]) => {
+                                  const regionName = excelData.find(r => normalizeKey(r[mapping.excelKey]) === key)?.[mapping.excelKey] || key;
+                                  return { name: regionName, ...values };
+                                })}
+                              layout="vertical"
+                              margin={{ top: 5, right: 60, left: 120, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                              <XAxis type="number" stroke="#64748b" style={{ fontSize: '11px' }} />
+                              <YAxis dataKey="name" type="category" width={115} stroke="#64748b" style={{ fontSize: '10px' }} />
+                              <Tooltip
+                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px' }}
+                                labelStyle={{ color: '#e2e8f0' }}
+                                formatter={(value: any) => value.toLocaleString()}
+                              />
+                              <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px' }} />
+                              {selectedYears.map((year, idx) => {
+                                const colors = ['#14b8a6', '#0ea5e9', '#f59e0b', '#ef4444', '#8b5cf6'];
+                                return (
+                                  <Bar key={year} dataKey={year} name={year} fill={colors[idx % colors.length]} radius={[0, 4, 4, 0]}>
+                                    <LabelList dataKey={year} position="right" style={{ fill: '#94a3b8', fontSize: 9 }} formatter={(v: any) => v?.toLocaleString()} />
+                                  </Bar>
+                                );
+                              })}
+                            </BarChart>
+                          </ResponsiveContainer>
                         </div>
-                        {rankedData.length === 0 && (
-                          <p className="text-center text-[11px] text-slate-600 py-8">Ma'lumot yo'q</p>
-                        )}
-                      </div>
+                      ) : (
+                        <div className="flex-1 overflow-y-auto scrollbar-hide bg-slate-800/40 rounded-xl border border-slate-700/40 p-3">
+                          <ResponsiveContainer width="100%" height={Math.max(300, rankedData.length * 30)}>
+                            <BarChart
+                              data={rankedData.slice(0, 15).map(d => ({
+                                name: d.name.length > 12 ? d.name.slice(0, 12) + '…' : d.name,
+                                val: d.val,
+                                color: d.color
+                              }))}
+                              layout="vertical"
+                              margin={{ top: 5, right: 40, left: 100, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                              <XAxis type="number" stroke="#64748b" style={{ fontSize: '11px' }} />
+                              <YAxis dataKey="name" type="category" width={95} stroke="#64748b" style={{ fontSize: '10px' }} />
+                              <Tooltip
+                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px' }}
+                                labelStyle={{ color: '#e2e8f0' }}
+                                formatter={(v: any) => [v.toLocaleString(), mapping.valueKey]}
+                              />
+                              <Bar dataKey="val" radius={[0, 4, 4, 0]}>
+                                {rankedData.slice(0, 15).map((entry, index) => (
+                                  <Cell key={index} fill={entry.color} />
+                                ))}
+                                <LabelList dataKey="val" position="right" style={{ fill: '#94a3b8', fontSize: 9 }} formatter={(v: any) => v?.toLocaleString()} />
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                          {rankedData.length === 0 && (
+                            <p className="text-center text-[11px] text-slate-600 py-8">Ma'lumot yo'q</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     /* ── Feature Info (click on map) ──────────────── */
