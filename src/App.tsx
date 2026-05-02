@@ -16,7 +16,7 @@ import {
 } from "d3-scale-chromatic";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { motion } from "motion/react";
-import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, TrendingUp, Crosshair, Database, Move, Printer, Compass, X, FileDown, Navigation2, Maximize2, Minimize2 } from "lucide-react";
+import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, TrendingUp, Crosshair, Database, Move, Printer, Compass, X, FileDown, Navigation2, Maximize2, Minimize2, MessageSquare, Send, Bot, Trash2 } from "lucide-react";
 import { Marker } from "react-leaflet";
 
 /* ── Palettes ─────────────────────────────────────────────────────────────── */
@@ -375,6 +375,14 @@ export default function App() {
   const [chartFullscreen, setChartFullscreen] = useState<boolean>(false);
   const chartResizeRef = useRef<{ startX: number; startW: number } | null>(null);
 
+  // AI Chat
+  type ChatMsg = { role: "user" | "model"; text: string };
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
   // Layout composition (GIS-style)
   const [layoutMode, setLayoutMode] = useState<"normal" | "narrow" | "wide">("normal");
   const [compositionScale, setCompositionScale] = useState<number>(1);
@@ -700,6 +708,41 @@ export default function App() {
   };
 
   const CHART_COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#10b981', '#f97316'];
+
+  /* ── AI Chat ──────────────────────────────────────────────────────────── */
+  const sendChat = async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading) return;
+    const userMsg: ChatMsg = { role: "user", text };
+    const next = [...chatMessages, userMsg];
+    setChatMessages(next);
+    setChatInput("");
+    setChatLoading(true);
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+
+    const mapContext = [
+      mapping.valueKey ? `Ko'rsatkich: ${mapping.valueKey}` : null,
+      valueUnit ? `Birlik: ${valueUnit}` : null,
+      stats.max ? `Maksimum: ${stats.max}, Minimum: ${stats.min}` : null,
+      selectedFeature ? `Tanlangan viloyat: ${selectedFeature.name}, qiymati: ${selectedFeature.value}` : null,
+      rankedData.length ? `Top 3: ${rankedData.slice(0,3).map((d:any)=>d.name).join(", ")}` : null,
+    ].filter(Boolean).join("\n");
+
+    try {
+      const res = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: next, mapContext }),
+      });
+      const data = await res.json();
+      setChatMessages(prev => [...prev, { role: "model", text: data.text || data.error || "Xatolik yuz berdi." }]);
+    } catch {
+      setChatMessages(prev => [...prev, { role: "model", text: "Server bilan bog'lanishda xatolik." }]);
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
+  };
 
   /* ────────────────────────────────────────────────────────────────────────
      RENDER
@@ -1823,6 +1866,114 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* ══ AI CHAT ══════════════════════════════════════════════════════ */}
+      {/* Floating button */}
+      <button
+        onClick={() => setChatOpen(v => !v)}
+        className={cn(
+          "fixed bottom-6 right-6 z-[9997] w-12 h-12 rounded-full shadow-2xl flex items-center justify-center transition-all",
+          chatOpen ? "bg-teal-600 rotate-90" : "bg-[#1a2235] border border-slate-600 hover:bg-teal-700"
+        )}
+        title="AI yordamchi"
+      >
+        {chatOpen ? <X size={20} className="text-white" /> : <Bot size={20} className="text-teal-400" />}
+      </button>
+
+      {/* Chat panel */}
+      {chatOpen && (
+        <div className="fixed bottom-24 right-6 z-[9996] w-[340px] sm:w-[380px] h-[500px] bg-[#0d1220] border border-slate-700/60 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 bg-[#111827] border-b border-slate-700/50 flex items-center gap-2.5 shrink-0">
+            <div className="w-7 h-7 rounded-full bg-teal-500/20 flex items-center justify-center">
+              <Bot size={14} className="text-teal-400" />
+            </div>
+            <div className="flex-1">
+              <div className="text-xs font-bold text-slate-200">Gemini AI</div>
+              <div className="text-[10px] text-teal-500">Xarita yordamchisi • Onlayn</div>
+            </div>
+            {chatMessages.length > 0 && (
+              <button onClick={() => setChatMessages([])} className="p-1 rounded text-slate-600 hover:text-red-400 transition-colors" title="Tozalash">
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-hide">
+            {chatMessages.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center gap-3 text-center px-4">
+                <div className="w-12 h-12 rounded-full bg-teal-500/10 flex items-center justify-center">
+                  <MessageSquare size={22} className="text-teal-500/60" />
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Xarita ma'lumotlari haqida savollar bering.<br/>
+                  Masalan: <span className="text-slate-500 italic">"Qashqadaryo bo'yicha tahlil ber"</span>
+                </p>
+                <div className="grid grid-cols-1 gap-1.5 w-full mt-1">
+                  {["Eng yuqori viloyatni tahlil qil", "Ma'lumotlarni qisqacha izohlat", "O'sish tendentsiyasi qanday?"].map(q => (
+                    <button key={q} onClick={() => { setChatInput(q); }}
+                      className="text-left text-[10px] text-slate-500 hover:text-teal-400 bg-slate-800/50 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700/40 transition-all">
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={cn("flex gap-2", msg.role === "user" ? "justify-end" : "justify-start")}>
+                {msg.role === "model" && (
+                  <div className="w-6 h-6 rounded-full bg-teal-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot size={11} className="text-teal-400" />
+                  </div>
+                )}
+                <div className={cn(
+                  "max-w-[82%] px-3 py-2 rounded-2xl text-[11px] leading-relaxed whitespace-pre-wrap",
+                  msg.role === "user"
+                    ? "bg-teal-600/80 text-white rounded-br-sm"
+                    : "bg-slate-800 text-slate-200 rounded-bl-sm border border-slate-700/40"
+                )}>
+                  {msg.text}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex gap-2 justify-start">
+                <div className="w-6 h-6 rounded-full bg-teal-500/20 flex items-center justify-center shrink-0">
+                  <Bot size={11} className="text-teal-400" />
+                </div>
+                <div className="bg-slate-800 border border-slate-700/40 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5 items-center">
+                  <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="p-3 border-t border-slate-700/50 shrink-0 bg-[#0d1220]">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+                placeholder="Savol yozing..."
+                className="flex-1 bg-slate-800/80 border border-slate-700/50 rounded-xl px-3 py-2 text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-teal-500/50 transition-colors"
+              />
+              <button
+                onClick={sendChat}
+                disabled={!chatInput.trim() || chatLoading}
+                className="w-9 h-9 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-600 flex items-center justify-center transition-all text-white"
+              >
+                <Send size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══ CHART FULLSCREEN MODAL ═══════════════════════════════════════ */}
       {chartFullscreen && rankedData.length > 0 && (

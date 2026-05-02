@@ -64,11 +64,10 @@ async function startServer() {
 
   app.use(express.json());
 
-  /* ── AI Analyze ─────────────────────────────────────────────────────────── */
+  /* ── AI Analyze (legacy) ────────────────────────────────────────────────── */
   app.post("/api/ai-analyze", async (req, res) => {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: "prompt required" });
-
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -81,20 +80,58 @@ async function startServer() {
           }),
         }
       );
-
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        return res
-          .status(response.status)
-          .json({ error: (err as any)?.error?.message || "Gemini xatosi" });
+        return res.status(response.status).json({ error: (err as any)?.error?.message || "Gemini xatosi" });
       }
-
       const data = await response.json();
-      const text =
-        (data as any)?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      const text = (data as any)?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       res.json({ text });
     } catch (err: any) {
       console.error("AI endpoint error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ── AI Chat (multi-turn) ───────────────────────────────────────────────── */
+  app.post("/api/ai-chat", async (req, res) => {
+    const { messages, mapContext } = req.body;
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: "messages required" });
+    }
+
+    const systemPrompt = `Sen O'zbekiston GIS xarita generator dasturining aqlli yordamchisisisan.
+Foydalanuvchi viloyatlar bo'yicha statistik ma'lumotlar bilan ishlaydi (aholi, iqtisodiyot, qishloq xo'jaligi va boshqalar).
+Qisqa, aniq va foydali javob ber. Savol o'zbek tilida bo'lsa — o'zbek tilida, rus tilida bo'lsa — rus tilida javob ber.
+${mapContext ? `\nHozirgi xarita ma'lumotlari:\n${mapContext}` : ""}`;
+
+    const contents = messages.map((m: { role: string; text: string }) => ({
+      role: m.role === "model" ? "model" : "user",
+      parts: [{ text: m.text }],
+    }));
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents,
+            generationConfig: { maxOutputTokens: 1200, temperature: 0.75 },
+          }),
+        }
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        return res.status(response.status).json({ error: (err as any)?.error?.message || "Gemini xatosi" });
+      }
+      const data = await response.json();
+      const text = (data as any)?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      res.json({ text });
+    } catch (err: any) {
+      console.error("AI chat error:", err);
       res.status(500).json({ error: err.message });
     }
   });
