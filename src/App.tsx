@@ -70,6 +70,13 @@ function FitBounds({ data }: { data: any }) {
   return null;
 }
 
+/* ── Expose Leaflet map instance to parent via ref ───────────────────────── */
+function MapRefSetter({ instanceRef }: { instanceRef: { current: L.Map | null } }) {
+  const map = useMap();
+  useEffect(() => { instanceRef.current = map; }, [map, instanceRef]);
+  return null;
+}
+
 /* ── Coordinate tracker ──────────────────────────────────────────────────── */
 function CoordTracker({ onCoord }: { onCoord: (c: { lat: number; lng: number } | null) => void }) {
   useMapEvents({
@@ -353,6 +360,7 @@ export default function App() {
   const [legendPosition, setLegendPosition] = useState<"br" | "bl" | "tr" | "tl">("br");
   const [showAttribution, setShowAttribution] = useState<boolean>(true);
   const mapRef = useRef<HTMLDivElement>(null);
+  const leafletMapRef = useRef<L.Map | null>(null);
 
   // Multi-year data support
   const [selectedYears, setSelectedYears] = useState<string[]>(["2025", "2024", "2023"]);
@@ -677,20 +685,31 @@ export default function App() {
   /* ── Kompanovka helpers ───────────────────────────────────────────────── */
   const openKompanovka = async () => {
     setShowKompanovka(true);
-    if (mapRef.current) {
-      // Small delay so Leaflet tiles finish rendering
-      await new Promise(r => setTimeout(r, 400));
+    if (!mapRef.current) return;
+
+    // Fit map to GeoJSON bounds so the export is always centred on Uzbekistan
+    if (leafletMapRef.current && geoData) {
       try {
-        const canvas = await html2canvas(mapRef.current, {
-          useCORS: true, allowTaint: true, scale: 1.5,
-          logging: false, backgroundColor: '#0f172a',
-          ignoreElements: (el: Element) => el.hasAttribute('data-html2canvas-ignore'),
-        });
-        canvas.toBlob(blob => {
-          if (blob) setKompMapImg(URL.createObjectURL(blob));
-        }, 'image/jpeg', 0.92);
-      } catch { setKompMapImg(""); }
+        const bounds = L.geoJSON(geoData).getBounds();
+        leafletMapRef.current.fitBounds(bounds, { animate: false, padding: [8, 8] });
+      } catch { /* ignore if bounds fail */ }
     }
+
+    // Wait for tiles to load after fitBounds
+    await new Promise(r => setTimeout(r, 700));
+
+    try {
+      const canvas = await html2canvas(mapRef.current, {
+        useCORS: true, allowTaint: true, scale: 1.5,
+        logging: false, backgroundColor: '#0f172a',
+        ignoreElements: (el: Element) =>
+          el.hasAttribute('data-html2canvas-ignore') ||
+          el.classList.contains('leaflet-control-container'),
+      });
+      canvas.toBlob(blob => {
+        if (blob) setKompMapImg(URL.createObjectURL(blob));
+      }, 'image/jpeg', 0.92);
+    } catch { setKompMapImg(""); }
   };
 
   /* Clone kompLayoutRef outside the fixed/backdrop-blur ancestor so
@@ -1489,7 +1508,7 @@ export default function App() {
                   transformOrigin: "center center"
                 }}>
                 <MapContainer center={[41.3, 63.9]} zoom={6} className="w-full h-full" zoomControl={false} scrollWheelZoom>
-                  {/* Tracker Removed for performance */}
+                  <MapRefSetter instanceRef={leafletMapRef} />
                   <MapController action={mapAction} />
                   {showScale && <ScaleControl position="bottomleft" imperial={false} />}
                   {baseMapKey !== "none" && BASEMAPS[baseMapKey] && (
@@ -1533,7 +1552,7 @@ export default function App() {
 
                 {/* ── Map Title Overlay ─────────────────────────────── */}
                 {mapTitle && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+                  <div data-html2canvas-ignore="true" className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
                     <div className="bg-[#ffffff]/90 backdrop-blur-sm px-6 py-2.5 rounded-xl border border-[#e2e8f0]/50 shadow-lg text-center">
                       <h1 className="text-xl font-extrabold text-[#1e293b] tracking-tight">{mapTitle}</h1>
                       {mapping.valueKey && <p className="text-[10px] font-bold text-white uppercase tracking-widest mt-0.5">{mapping.valueKey}</p>}
@@ -1542,7 +1561,7 @@ export default function App() {
                 )}
 
                 {/* ── Legend ────────────────────────────────────────── */}
-                <div className={cn("absolute z-[1000]", {
+                <div data-html2canvas-ignore="true" className={cn("absolute z-[1000]", {
                   "bottom-12 right-3": legendPosition === "br",
                   "bottom-12 left-3": legendPosition === "bl",
                   "top-24 right-3": legendPosition === "tr",
@@ -1585,7 +1604,7 @@ export default function App() {
 
                 {/* ── Region Chart Legend ─────────────────────────────── */}
                 {showRegionCharts && regionChartCols.length > 0 && (
-                  <div className="absolute top-24 left-3 z-[1000] bg-[#151824]/95 backdrop-blur-sm rounded-lg border border-slate-700/50 shadow-xl p-3 pointer-events-none">
+                  <div data-html2canvas-ignore="true" className="absolute top-24 left-3 z-[1000] bg-[#151824]/95 backdrop-blur-sm rounded-lg border border-slate-700/50 shadow-xl p-3 pointer-events-none">
                     <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                       Viloyat chart izoh
                     </div>
