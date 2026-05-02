@@ -102,17 +102,41 @@ async function startServer() {
 
     const systemPrompt = `Sen O'zbekiston GIS xarita generator dasturining aqlli yordamchisisisan.
 Foydalanuvchi viloyatlar bo'yicha statistik ma'lumotlar bilan ishlaydi (aholi, iqtisodiyot, qishloq xo'jaligi va boshqalar).
-Qisqa, aniq va foydali javob ber. Savol o'zbek tilida bo'lsa — o'zbek tilida, rus tilida bo'lsa — rus tilida javob ber.
-${mapContext ? `\nHozirgi xarita ma'lumotlari:\n${mapContext}` : ""}`;
+Qisqa, aniq va foydali javob ber. Savol o'zbek tilida bo'lsa — o'zbek tilida, rus tilida bo'lsa — rus tilida javob ber.${mapContext ? `\n\nHozirgi xarita:\n${mapContext}` : ""}`;
 
-    const contents = messages.map((m: { role: string; text: string }) => ({
-      role: m.role === "model" ? "model" : "user",
-      parts: [{ text: m.text }],
-    }));
+    const openAiMessages = [
+      { role: "system", content: systemPrompt },
+      ...messages.map((m: { role: string; text: string }) => ({
+        role: m.role === "model" ? "assistant" : "user",
+        content: m.text,
+      })),
+    ];
 
+    // 1️⃣ Pollinations.ai — bepul, API kalit shart emas
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      const r = await fetch("https://text.pollinations.ai/openai/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "openai", messages: openAiMessages }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        const text = (d as any)?.choices?.[0]?.message?.content || "";
+        if (text) return res.json({ text, source: "pollinations" });
+      }
+    } catch (e) {
+      console.warn("[AI] Pollinations.ai xatosi, Gemini ga o'tilmoqda...", e);
+    }
+
+    // 2️⃣ Gemini — zaxira
+    if (!GEMINI_API_KEY) return res.status(503).json({ error: "AI xizmati vaqtincha mavjud emas." });
+    try {
+      const contents = messages.map((m: { role: string; text: string }) => ({
+        role: m.role === "model" ? "model" : "user",
+        parts: [{ text: m.text }],
+      }));
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -123,16 +147,13 @@ ${mapContext ? `\nHozirgi xarita ma'lumotlari:\n${mapContext}` : ""}`;
           }),
         }
       );
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        return res.status(response.status).json({ error: (err as any)?.error?.message || "Gemini xatosi" });
-      }
-      const data = await response.json();
-      const text = (data as any)?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      res.json({ text });
+      const d = await r.json();
+      if (!r.ok) return res.status(r.status).json({ error: (d as any)?.error?.message || "Gemini xatosi" });
+      const text = (d as any)?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      res.json({ text, source: "gemini" });
     } catch (err: any) {
       console.error("AI chat error:", err);
-      res.status(500).json({ error: err.message });
+      res.status(500).json({ error: "AI xizmati vaqtincha ishlamayapti." });
     }
   });
 
