@@ -1564,6 +1564,7 @@ export default function App() {
                             <Tooltip
                               contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '11px', boxShadow: '0 10px 30px rgba(0,0,0,0.6)', padding: '8px 12px' }}
                               labelStyle={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '4px', borderBottom: '1px solid #1e293b', paddingBottom: '4px' }}
+                              itemStyle={{ color: '#e2e8f0' }}
                               formatter={(v: any, name: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), name]}
                               cursor={{ fill: '#1e293b', opacity: 0.4 }}
                             />
@@ -1596,6 +1597,7 @@ export default function App() {
                             <Tooltip
                               contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '11px', boxShadow: '0 10px 30px rgba(0,0,0,0.6)', padding: '8px 12px' }}
                               labelStyle={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '4px', borderBottom: '1px solid #1e293b', paddingBottom: '4px' }}
+                              itemStyle={{ color: '#e2e8f0' }}
                               formatter={(v: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), mapping.valueKey]}
                               cursor={{ fill: '#1e293b', opacity: 0.4 }}
                             />
@@ -1989,7 +1991,7 @@ export default function App() {
                       <CartesianGrid strokeDasharray="4 4" stroke="#1e293b" vertical={false} opacity={0.7} />
                       <XAxis dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 10, fontWeight: 600 }} angle={-40} textAnchor="end" interval={0} axisLine={{ stroke: '#334155' }} tickLine={false} />
                       <YAxis tick={{ fill: '#e2e8f0', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '12px' }} formatter={(v: any, name: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), name]} cursor={{ fill: '#1e293b', opacity: 0.4 }} />
+                      <Tooltip contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '12px' }} labelStyle={{ color: '#e2e8f0', fontWeight: 700 }} itemStyle={{ color: '#e2e8f0' }} formatter={(v: any, name: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), name]} cursor={{ fill: '#1e293b', opacity: 0.4 }} />
                       {regionChartCols.map((col: string, i: number) => (
                         <Bar key={col} dataKey={col} name={col} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} maxBarSize={20} />
                       ))}
@@ -2014,7 +2016,7 @@ export default function App() {
                     <CartesianGrid strokeDasharray="4 4" stroke="#1e293b" vertical={false} opacity={0.7} />
                     <XAxis dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 10, fontWeight: 600 }} angle={-40} textAnchor="end" interval={0} axisLine={{ stroke: '#334155' }} tickLine={false} />
                     <YAxis tick={{ fill: '#e2e8f0', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '12px' }} formatter={(v: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), mapping.valueKey]} cursor={{ fill: '#1e293b', opacity: 0.4 }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '12px' }} labelStyle={{ color: '#e2e8f0', fontWeight: 700 }} itemStyle={{ color: '#e2e8f0' }} formatter={(v: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), mapping.valueKey]} cursor={{ fill: '#1e293b', opacity: 0.4 }} />
                     <Bar dataKey="val" radius={[4, 4, 0, 0]} maxBarSize={36}>
                       {rankedData.map((entry: any, i: number) => <Cell key={i} fill={entry.color} />)}
                     </Bar>
