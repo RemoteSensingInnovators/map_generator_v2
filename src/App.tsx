@@ -679,31 +679,51 @@ export default function App() {
     setShowKompanovka(true);
     if (mapRef.current) {
       try {
-        const canvas = await html2canvas(mapRef.current, { useCORS: true, scale: 1, logging: false });
+        const canvas = await html2canvas(mapRef.current, { useCORS: true, allowTaint: true, scale: 1, logging: false, backgroundColor: null });
         setKompMapImg(canvas.toDataURL("image/jpeg", 0.9));
       } catch { setKompMapImg(""); }
     }
   };
 
+  const downloadBlob = (dataUrl: string, filename: string) => {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 200);
+  };
+
   const exportKompPng = async () => {
     if (!kompLayoutRef.current) return;
-    const canvas = await html2canvas(kompLayoutRef.current, { scale: 2, useCORS: true, logging: false });
-    const a = document.createElement("a");
-    a.href = canvas.toDataURL("image/png");
-    a.download = `karta_${kompTitle || "export"}_${Date.now()}.png`;
-    a.click();
+    try {
+      const canvas = await html2canvas(kompLayoutRef.current, {
+        scale: 2, useCORS: true, allowTaint: true, logging: false,
+        backgroundColor: '#0d1117',
+      });
+      downloadBlob(canvas.toDataURL("image/png"), `karta_${kompTitle || "export"}_${Date.now()}.png`);
+    } catch (err) {
+      alert("PNG yuklab bo'lmadi: " + (err as any)?.message);
+    }
   };
 
   const exportKompPdf = async () => {
     if (!kompLayoutRef.current) return;
-    const canvas = await html2canvas(kompLayoutRef.current, { scale: 2, useCORS: true, logging: false });
-    const { jsPDF } = await import("jspdf");
-    const orient = kompOrient === "landscape" ? "l" : "p";
-    const pdf = new jsPDF({ orientation: orient as any, unit: "mm", format: kompPaper.toLowerCase() as any });
-    const w = pdf.internal.pageSize.getWidth();
-    const h = pdf.internal.pageSize.getHeight();
-    pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, w, h);
-    pdf.save(`karta_${kompTitle || "export"}_${Date.now()}.pdf`);
+    try {
+      const canvas = await html2canvas(kompLayoutRef.current, {
+        scale: 2, useCORS: true, allowTaint: true, logging: false,
+        backgroundColor: '#0d1117',
+      });
+      const { jsPDF } = await import("jspdf");
+      const orient = kompOrient === "landscape" ? "l" : "p";
+      const pdf = new jsPDF({ orientation: orient as any, unit: "mm", format: kompPaper.toLowerCase() as any });
+      const w = pdf.internal.pageSize.getWidth();
+      const h = pdf.internal.pageSize.getHeight();
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, w, h);
+      pdf.save(`karta_${kompTitle || "export"}_${Date.now()}.pdf`);
+    } catch (err) {
+      alert("PDF yuklab bo'lmadi: " + (err as any)?.message);
+    }
   };
 
   const CHART_COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#10b981', '#f97316'];
@@ -1475,6 +1495,7 @@ export default function App() {
                 {/* ── Map Chart Overlay (Draggable) ─────────────────────────────── */}
                 {showMapChart && rankedData.length > 0 && (
                   <motion.div
+                    data-html2canvas-ignore="true"
                     drag={isChartMoveMode}
                     dragControls={dragControls}
                     dragListener={false}
