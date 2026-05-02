@@ -1,0 +1,115 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Ozbekiston respublikasi",
+        "region_id": "Ozbekiston respublikasi"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[55.5, 37.5], [75.5, 37.5], [75.5, 46.5], [55.5, 46.5], [55.5, 37.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Samarqand viloyati",
+        "region_id": "Samarqand viloyati"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[63.5, 38.5], [68.5, 38.5], [68.5, 41.5], [63.5, 41.5], [63.5, 38.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Toshkent shahar",
+        "region_id": "Toshkent shahar"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[68.5, 41.5], [70.5, 41.5], [70.5, 42.5], [68.5, 42.5], [68.5, 41.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Qashqadarya viloyati",
+        "region_id": "Qashqadarya viloyati"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[62.5, 37.5], [67.5, 37.5], [67.5, 40.5], [62.5, 40.5], [62.5, 37.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Surxondarya viloyati",
+        "region_id": "Surxondarya viloyati"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[66.5, 36.5], [71.5, 36.5], [71.5, 38.5], [66.5, 38.5], [66.5, 36.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Andijon viloyati",
+        "region_id": "Andijon viloyati"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[70.5, 40.5], [74.5, 40.5], [74.5, 43.5], [70.5, 43.5], [70.5, 40.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Fargona viloyati",
+        "region_id": "Fargona viloyati"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[71.5, 40.5], [74.5, 40.5], [74.5, 42.5], [71.5, 42.5], [71.5, 40.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Xorazm viloyati",
+        "region_id": "Xorazm viloyati"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[55.5, 41.5], [61.5, 41.5], [61.5, 43.5], [55.5, 43.5], [55.5, 41.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Navoi viloyati",
+        "region_id": "Navoi viloyati"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[61.5, 39.5], [66.5, 39.5], [66.5, 43.5], [61.5, 43.5], [61.5, 39.5]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Bukhoro viloyati",
+        "region_id": "Bukhoro viloyati"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[62.5, 38.5], [66.5, 38.5], [66.5, 41.5], [62.5, 41.5], [62.5, 38.5]]]
+      }
+    }
+  ]
+}

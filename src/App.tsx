@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, GeoJSON, useMap, useMapEvents, ScaleControl } from "react-leaflet";
+import { useMotionValue, useDragControls } from "motion/react";
 import * as L from "leaflet";
 import * as XLSX from "xlsx";
 import html2canvas from "html2canvas";
@@ -13,9 +14,9 @@ import {
   schemeYlOrRd, schemeBlues, schemeGreens, schemeReds, schemePurples,
   schemeOranges, schemeRdYlGn, schemeSpectral, schemeBrBG, schemeYlGnBu
 } from "d3-scale-chromatic";
-import { BarChart, Bar, Cell, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { motion } from "motion/react";
-import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, TrendingUp, Crosshair, Database, Move } from "lucide-react";
+import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, TrendingUp, Crosshair, Database, Move, Printer, Compass, X, FileDown, Navigation2, Maximize2, Minimize2 } from "lucide-react";
 import { Marker } from "react-leaflet";
 
 /* ── Palettes ─────────────────────────────────────────────────────────────── */
@@ -171,7 +172,7 @@ function MapLabels({ geoData, mapping, labelProperty, excelData, labelSize, isLa
 }
 
 /* ── Region Mini Charts ──────────────────────────────────────────────────── */
-function RegionMiniCharts({ geoData, mapping, dataLookup, colorScale, stats, excelData, regionChartCols }: any) {
+function RegionMiniCharts({ geoData, mapping, dataLookup, colorScale, stats, excelData, regionChartCols, scale, offsets, dragMode, onOffsetChange }: any) {
   const [centers, setCenters] = useState<Record<string, { lat: number; lng: number }>>({});
 
   useEffect(() => {
@@ -187,9 +188,9 @@ function RegionMiniCharts({ geoData, mapping, dataLookup, colorScale, stats, exc
     setCenters(newCenters);
   }, [geoData, mapping.geoKey]);
 
-  const BAR_H = 30;
-  const BAR_W = 6;
-  const GAP = 2;
+  const BAR_H = Math.round(30 * scale);
+  const BAR_W = Math.round(6 * scale);
+  const GAP = Math.round(2 * scale);
   const COL_COLORS = ['#14b8a6', '#f97316', '#8b5cf6', '#ef4444', '#0ea5e9', '#f59e0b', '#10b981'];
   const maxVal = stats.max || 1;
 
@@ -197,23 +198,21 @@ function RegionMiniCharts({ geoData, mapping, dataLookup, colorScale, stats, exc
     <>
       {geoData.features.map((feature: any) => {
         const key = normalizeKey(feature.properties[mapping.geoKey]);
-        const pos = centers[key];
-        if (!pos) return null;
+        const center = centers[key];
+        if (!center) return null;
+        const pos = offsets[key] || center;
 
         const excelRow = excelData?.find((r: any) => normalizeKey(r[mapping.excelKey]) === key);
 
         let bars: { h: number; color: string; label: string }[] = [];
 
         if (regionChartCols.length > 0 && excelRow) {
-          // Foydalanuvchi tanlagan ustunlar bo'yicha
           bars = regionChartCols.map((col: string, i: number) => {
             const v = parseFloat(excelRow[col]);
             const val = isNaN(v) ? 0 : v;
-            // Per-column max for better visual
             return { h: Math.max(2, (val / maxVal) * BAR_H), color: COL_COLORS[i % COL_COLORS.length], label: col };
           });
         } else {
-          // Standart: hozirgi valueKey bo'yicha bitta bar
           const val = dataLookup.get(key);
           if (val === undefined) return null;
           bars = [{ h: Math.max(2, (val / maxVal) * BAR_H), color: colorScale(val), label: String(Math.round(val)) }];
@@ -229,12 +228,9 @@ function RegionMiniCharts({ geoData, mapping, dataLookup, colorScale, stats, exc
           })
           .join('');
 
+        const cursor = dragMode ? 'grab' : 'default';
         const html = `
-          <div style="
-            background:transparent;
-            padding:2px 3px 0 3px;
-            pointer-events:none;
-          ">
+          <div style="background:transparent;padding:2px 3px 0 3px;cursor:${cursor};">
             <svg width="${totalW}" height="${BAR_H}" xmlns="http://www.w3.org/2000/svg">
               ${svgRects}
             </svg>
@@ -249,7 +245,20 @@ function RegionMiniCharts({ geoData, mapping, dataLookup, colorScale, stats, exc
           iconAnchor: [iconW / 2, iconH / 2],
         });
 
-        return <Marker key={`mc-${key}`} position={pos} icon={icon} interactive={false} />;
+        return (
+          <Marker
+            key={`mc-${key}`}
+            position={pos}
+            icon={icon}
+            draggable={dragMode}
+            interactive={dragMode}
+            eventHandlers={{
+              dragend: (e) => {
+                onOffsetChange(key, e.target.getLatLng());
+              }
+            }}
+          />
+        );
       })}
     </>
   );
@@ -331,10 +340,9 @@ export default function App() {
   const [mapAction, setMapAction] = useState<string | null>(null);
   const [labelSize, setLabelSize] = useState<number>(11);
   const [selectedFeature, setSelectedFeature] = useState<any>(null);
-  const [rightTab, setRightTab] = useState<"attributes" | "info" | "chart">("attributes");
+  const [rightTab, setRightTab] = useState<"attributes" | "info">("attributes");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isLabelMode, setIsLabelMode] = useState<boolean>(false);
-  const layoutMode = false;
   const [labelPositions, setLabelPositions] = useState<Record<string, { lat: number; lng: number }>>({});
   const [selectedIndicator, setSelectedIndicator] = useState<string>("246");
   const [isFetchingApi, setIsFetchingApi] = useState(false);
@@ -350,10 +358,40 @@ export default function App() {
   const [selectedYears, setSelectedYears] = useState<string[]>(["2025", "2024", "2023"]);
   const [multiYearData, setMultiYearData] = useState<{ [year: string]: ExcelRow[] }>({});
   const [chartDataByYear, setChartDataByYear] = useState<{ [key: string]: { [year: string]: number } }>({});
-  const [showMapChart, setShowMapChart] = useState<boolean>(false);
+  const [showMapChart, setShowMapChart] = useState<boolean>(true);
   const [showRegionCharts, setShowRegionCharts] = useState<boolean>(false);
   const [regionChartCols, setRegionChartCols] = useState<string[]>([]);
+  const [miniChartScale, setMiniChartScale] = useState<number>(1);
+  const [miniChartOffsets, setMiniChartOffsets] = useState<Record<string, { lat: number; lng: number }>>({});
+  const [miniChartDragMode, setMiniChartDragMode] = useState<boolean>(false);
   const [cacheSource, setCacheSource] = useState<"" | "localStorage" | "server" | "network">("")
+
+  // Chart dragging & positioning
+  const chartX = useMotionValue(12);
+  const chartY = useMotionValue(12);
+  const dragControls = useDragControls();
+  const [isChartMoveMode, setIsChartMoveMode] = useState<boolean>(true);
+  const [chartW, setChartW] = useState<number>(520);
+  const [chartFullscreen, setChartFullscreen] = useState<boolean>(false);
+  const chartResizeRef = useRef<{ startX: number; startW: number } | null>(null);
+
+  // Layout composition (GIS-style)
+  const [layoutMode, setLayoutMode] = useState<"normal" | "narrow" | "wide">("normal");
+  const [compositionScale, setCompositionScale] = useState<number>(1);
+
+  // Kompanovka (Print Layout)
+  const [showKompanovka, setShowKompanovka] = useState(false);
+  const [kompMapImg, setKompMapImg] = useState<string>("");
+  const [kompTitle, setKompTitle] = useState("");
+  const [kompSubtitle, setKompSubtitle] = useState("");
+  const [kompPaper, setKompPaper] = useState<"A4" | "A3">("A3");
+  const [kompOrient, setKompOrient] = useState<"landscape" | "portrait">("landscape");
+  const [kompShowLegend, setKompShowLegend] = useState(true);
+  const [kompShowNorth, setKompShowNorth] = useState(true);
+  const [kompShowScaleBar, setKompShowScaleBar] = useState(true);
+  const [kompShowChart, setKompShowChart] = useState(false);
+  const [kompSource, setKompSource] = useState("Manba: stat.uz");
+  const kompLayoutRef = useRef<HTMLDivElement>(null);
 
   /* ── localStorage cache helpers ────────────────────────────────────────── */
   const LS_TTL = 60 * 60 * 1000; // 1 soat
@@ -450,10 +488,7 @@ export default function App() {
         setMapping(prev => ({ ...prev, excelKey: geoKeyCol, valueKey: latestYear }));
         if (indicatorMeta?.unit) setValueUnit(indicatorMeta.unit);
         if (indicatorMeta?.label) {
-          const yearLabel = selectedYears.length > 1
-            ? `${indicatorMeta.label} (${selectedYears.join(", ")})`
-            : `${indicatorMeta.label} (${latestYear})`;
-          setMapTitle(yearLabel);
+          setMapTitle(indicatorMeta.label);
         }
         setCacheSource(source);
         return true;
@@ -632,6 +667,40 @@ export default function App() {
 
 
 
+  /* ── Kompanovka helpers ───────────────────────────────────────────────── */
+  const openKompanovka = async () => {
+    setShowKompanovka(true);
+    if (mapRef.current) {
+      try {
+        const canvas = await html2canvas(mapRef.current, { useCORS: true, scale: 1, logging: false });
+        setKompMapImg(canvas.toDataURL("image/jpeg", 0.9));
+      } catch { setKompMapImg(""); }
+    }
+  };
+
+  const exportKompPng = async () => {
+    if (!kompLayoutRef.current) return;
+    const canvas = await html2canvas(kompLayoutRef.current, { scale: 2, useCORS: true, logging: false });
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `karta_${kompTitle || "export"}_${Date.now()}.png`;
+    a.click();
+  };
+
+  const exportKompPdf = async () => {
+    if (!kompLayoutRef.current) return;
+    const canvas = await html2canvas(kompLayoutRef.current, { scale: 2, useCORS: true, logging: false });
+    const { jsPDF } = await import("jspdf");
+    const orient = kompOrient === "landscape" ? "l" : "p";
+    const pdf = new jsPDF({ orientation: orient as any, unit: "mm", format: kompPaper.toLowerCase() as any });
+    const w = pdf.internal.pageSize.getWidth();
+    const h = pdf.internal.pageSize.getHeight();
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, w, h);
+    pdf.save(`karta_${kompTitle || "export"}_${Date.now()}.pdf`);
+  };
+
+  const CHART_COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#10b981', '#f97316'];
+
   /* ────────────────────────────────────────────────────────────────────────
      RENDER
      ──────────────────────────────────────────────────────────────────────── */
@@ -702,6 +771,84 @@ export default function App() {
               <BarChart2 size={13} />
               <span>Hz</span>
             </button>
+          </div>
+        )}
+
+        {/* Composition & Chart Controls (map view only) */}
+        {activeTab === "map" && (
+          <div className="flex items-center gap-0.5 px-3 border-r border-slate-800">
+            {/* Layout mode buttons */}
+            {[
+              { id: "normal", label: "Standart", title: "Normal rejim" },
+              { id: "narrow", label: "Tor", title: "Tor rejim (Narrow)" },
+              { id: "wide", label: "Keng", title: "Keng rejim (Wide)" },
+            ].map(({ id, label, title }) => (
+              <button
+                key={id}
+                title={title}
+                onClick={() => {
+                  setLayoutMode(id as any);
+                  if (id !== "normal") setCompositionScale(0.85);
+                  else setCompositionScale(1);
+                }}
+                className={cn(
+                  "px-2 py-1 rounded text-[10px] font-bold transition-colors",
+                  layoutMode === id
+                    ? "bg-sky-600 text-white"
+                    : "text-slate-400 hover:text-white hover:bg-slate-700"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+
+            {/* Scale slider for composition */}
+            {layoutMode !== "normal" && (
+              <div className="flex items-center gap-1.5 px-2 ml-2 border-l border-slate-800 pl-3">
+                <span className="text-[9px] text-slate-600">Masshtab:</span>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="1.5"
+                  step="0.05"
+                  value={compositionScale}
+                  onChange={(e) => setCompositionScale(parseFloat(e.target.value))}
+                  className="w-20 h-1 bg-slate-700 rounded-full appearance-none accent-sky-500 cursor-pointer"
+                  title="Xarita masshtabini sozlash"
+                />
+                <span className="text-[9px] font-mono text-slate-500 w-10">{(compositionScale * 100).toFixed(0)}%</span>
+              </div>
+            )}
+
+            {/* Chart move mode toggle */}
+            {showMapChart && (
+              <div className="ml-2 pl-3 border-l border-slate-800 flex items-center gap-1.5">
+                <button
+                  title={isChartMoveMode ? "Grafik harakatini yoqiq" : "Grafik harakatini yoqiq"}
+                  onClick={() => setIsChartMoveMode(!isChartMoveMode)}
+                  className={cn(
+                    "p-1.5 rounded transition-colors flex items-center gap-1",
+                    isChartMoveMode
+                      ? "bg-teal-600 text-white"
+                      : "text-slate-400 hover:text-white hover:bg-slate-700"
+                  )}
+                >
+                  <Move size={12} />
+                </button>
+              </div>
+            )}
+
+            {/* Kompanovka button */}
+            <div className="ml-2 pl-3 border-l border-slate-800 flex items-center">
+              <button
+                title="Kompanovka — Xarita chop etish tartibini sozlash"
+                onClick={openKompanovka}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-sky-700/80 hover:bg-sky-600 text-white text-[10px] font-bold transition-colors shadow-sm"
+              >
+                <Printer size={12} />
+                <span>Kompanovka</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -1024,6 +1171,25 @@ export default function App() {
                       )}
                     </div>
 
+                    {/* Chart movement toggle */}
+                    {showMapChart && (
+                      <div>
+                        <SLabel icon={BarChart2} label="Grafik harakati" color="bg-cyan-500" />
+                        <div className="flex items-center justify-between bg-slate-800/80 p-2.5 rounded-lg border border-slate-700/50">
+                          <div className="flex items-center gap-1.5">
+                            <Move size={12} className={cn("transition-colors", isChartMoveMode ? "text-cyan-400" : "text-slate-500")} />
+                            <span className="text-[10px] font-bold text-slate-300">Grafikni surish</span>
+                          </div>
+                          <button onClick={() => setIsChartMoveMode(!isChartMoveMode)}
+                            className={cn("px-2.5 py-1 rounded text-[10px] font-bold transition-all shadow-sm",
+                              isChartMoveMode ? "bg-cyan-500 text-white border border-cyan-400" : "bg-slate-700 text-slate-400 border border-slate-600 hover:bg-slate-600 hover:text-white"
+                            )}>
+                            {isChartMoveMode ? "Yoniq" : "O'chiq"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Basemap */}
                     <div>
                       <SLabel icon={Globe} label="Asosiy xarita" color="bg-sky-500" />
@@ -1076,6 +1242,41 @@ export default function App() {
                             Tanlovni tozalash
                           </button>
                         )}
+                        {/* Size & drag controls */}
+                        <div className="mt-2 space-y-1.5">
+                          <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-lg border border-slate-700/50">
+                            <span className="text-[10px] font-bold text-slate-300">O'lcham</span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setMiniChartScale(s => Math.max(0.5, +(s - 0.25).toFixed(2)))}
+                                className="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-[11px] font-bold flex items-center justify-center"
+                              >−</button>
+                              <span className="text-[10px] text-slate-400 w-8 text-center">{Math.round(miniChartScale * 100)}%</span>
+                              <button
+                                onClick={() => setMiniChartScale(s => Math.min(4, +(s + 0.25).toFixed(2)))}
+                                className="w-5 h-5 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 text-[11px] font-bold flex items-center justify-center"
+                              >+</button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between bg-slate-800/80 p-2 rounded-lg border border-slate-700/50">
+                            <div className="flex items-center gap-1.5">
+                              <Move size={11} className={cn("transition-colors", miniChartDragMode ? "text-violet-400" : "text-slate-500")} />
+                              <span className="text-[10px] font-bold text-slate-300">Chartni surish</span>
+                            </div>
+                            <button
+                              onClick={() => setMiniChartDragMode(v => !v)}
+                              className={cn("px-2 py-0.5 rounded text-[10px] font-bold transition-all",
+                                miniChartDragMode ? "bg-violet-500 text-white border border-violet-400" : "bg-slate-700 text-slate-400 border border-slate-600 hover:bg-slate-600 hover:text-white"
+                              )}
+                            >{miniChartDragMode ? "Yoniq" : "O'chiq"}</button>
+                          </div>
+                          {Object.keys(miniChartOffsets).length > 0 && (
+                            <button
+                              onClick={() => setMiniChartOffsets({})}
+                              className="text-[9px] text-slate-700 hover:text-red-400 transition-colors underline"
+                            >Pozitsiyani tiklash</button>
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -1094,25 +1295,29 @@ export default function App() {
             </aside>
 
             {/* ── MAP ─────────────────────────────────────────────────── */}
-            <section className={cn("flex-1 relative flex flex-col overflow-hidden", layoutMode ? "bg-[#0a0f18] p-4 sm:p-12 overflow-auto items-center justify-center" : "")}>
+            <section className={cn("flex-1 relative flex flex-col overflow-hidden", layoutMode !== "normal" ? "bg-[#0a0f18] p-4 sm:p-12 overflow-auto items-center justify-center" : "")}>
 
-              {layoutMode && (
+              {layoutMode !== "normal" && (
                 <div className="absolute top-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
                   <div className="bg-teal-500/20 text-teal-400 px-4 py-1.5 rounded-full border border-teal-500/30 text-xs font-bold uppercase tracking-widest pointer-events-auto shadow-lg backdrop-blur-sm">
-                    Kompanovka Rejimi (A4 Landscape)
+                    {layoutMode === "narrow" ? "Tor rejimi (Narrow)" : "Keng rejimi (Wide)"} · Masshtab: {(compositionScale * 100).toFixed(0)}%
                   </div>
                 </div>
               )}
 
               <div ref={mapRef}
                 className="relative shrink-0 transition-all duration-500 ease-in-out w-full h-full flex-1"
-                style={{ background: baseMapKey === "none" ? "#0f172a" : baseMapKey === "dark" ? "#0d0d12" : "#aad3df" }}>
+                style={{
+                  background: baseMapKey === "none" ? "#0f172a" : baseMapKey === "dark" ? "#0d0d12" : "#aad3df",
+                  transform: layoutMode !== "normal" ? `scale(${compositionScale})` : "scale(1)",
+                  transformOrigin: "center center"
+                }}>
                 <MapContainer center={[41.3, 63.9]} zoom={6} className="w-full h-full" zoomControl={false} scrollWheelZoom>
                   {/* Tracker Removed for performance */}
                   <MapController action={mapAction} />
                   {showScale && <ScaleControl position="bottomleft" imperial={false} />}
                   {baseMapKey !== "none" && BASEMAPS[baseMapKey] && (
-                    <TileLayer key={baseMapKey} url={BASEMAPS[baseMapKey].url} attribution={layoutMode ? "" : BASEMAPS[baseMapKey].attribution} crossOrigin="anonymous" />
+                    <TileLayer key={baseMapKey} url={BASEMAPS[baseMapKey].url} attribution={layoutMode !== "normal" ? "" : BASEMAPS[baseMapKey].attribution} crossOrigin="anonymous" />
                   )}
                   {geoData && (
                     <>
@@ -1138,6 +1343,12 @@ export default function App() {
                           stats={stats}
                           excelData={excelData}
                           regionChartCols={regionChartCols}
+                          scale={miniChartScale}
+                          offsets={miniChartOffsets}
+                          dragMode={miniChartDragMode}
+                          onOffsetChange={(key: string, pos: { lat: number; lng: number }) =>
+                            setMiniChartOffsets(prev => ({ ...prev, [key]: pos }))
+                          }
                         />
                       )}
                     </>
@@ -1219,95 +1430,172 @@ export default function App() {
                   </div>
                 )}
 
-                {/* ── Map Chart Overlay ─────────────────────────────── */}}
+                {/* ── Map Chart Overlay (Draggable) ─────────────────────────────── */}
                 {showMapChart && rankedData.length > 0 && (
-                  <div
-                    className="absolute bottom-10 left-3 z-[1000] bg-[#0f1624]/96 backdrop-blur-sm rounded-xl border border-slate-700/40 shadow-2xl"
-                    style={{ width: 290 }}
+                  <motion.div
+                    drag={isChartMoveMode}
+                    dragControls={dragControls}
+                    dragListener={false}
+                    dragMomentum={false}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={cn(
+                      "absolute top-16 left-3 z-[1000] bg-[#0f1624]/96 backdrop-blur-sm rounded-xl border border-slate-700/40 shadow-2xl overflow-hidden",
+                      isChartMoveMode ? "ring-1 ring-teal-500/40" : ""
+                    )}
+                    style={{ width: chartW, x: chartX, y: chartY, position: "absolute" }}
                   >
-                    {/* Header */}
-                    <div className="px-3 pt-3 pb-1 border-b border-slate-800/60">
-                      <div className="text-[10px] font-bold text-slate-200 truncate">
-                        {mapping.valueKey || "Qiymat"}
+                    {/* Header with drag handle */}
+                    <div
+                      className={cn(
+                        "px-3 pt-2.5 pb-2 border-b border-slate-800/60 flex items-center gap-2",
+                        isChartMoveMode ? "bg-teal-900/20 cursor-grab active:cursor-grabbing" : ""
+                      )}
+                      onPointerDown={(e) => {
+                        if (isChartMoveMode) dragControls.start(e);
+                      }}
+                    >
+                      {/* Drag handle toggle */}
+                      <button
+                        title={isChartMoveMode ? "Harakat rejimi yoqiq — o'chirish" : "Grafik harakatlantirish"}
+                        onClick={(e) => { e.stopPropagation(); setIsChartMoveMode(v => !v); }}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-all shrink-0",
+                          isChartMoveMode
+                            ? "bg-teal-500/20 text-teal-400 border border-teal-500/40"
+                            : "bg-slate-800/60 text-slate-500 hover:text-slate-300 border border-slate-700/50"
+                        )}
+                      >
+                        <Move size={11} />
+                        {isChartMoveMode && <span>Surish</span>}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold text-slate-200 truncate">
+                          {mapping.valueKey || "Qiymat"}
+                        </div>
+                        <div className="text-[10px] text-slate-500">{valueUnit}</div>
                       </div>
-                      <div className="text-[9px] text-slate-600">{valueUnit}</div>
+                      {/* Fullscreen button */}
+                      <button
+                        title="To'liq ekran"
+                        onClick={(e) => { e.stopPropagation(); setChartFullscreen(true); }}
+                        className="p-1 rounded text-slate-500 hover:text-white hover:bg-slate-700 transition-colors shrink-0"
+                      >
+                        <Maximize2 size={12} />
+                      </button>
                     </div>
 
                     {/* Chart area */}
                     {regionChartCols.length > 1 ? (
-                      /* Multi-series: regionChartCols ustunlari bo'yicha */
-                      <div className="p-2">
-                        <ResponsiveContainer width="100%" height={200}>
+                      /* Multi-series: yillar bo'yicha guruhlangan */
+                      <div className="p-3">
+                        <ResponsiveContainer width="100%" height={300}>
                           <BarChart
-                            data={rankedData.slice(0, 12).map((d: any) => {
+                            data={rankedData.slice(0, 10).map((d: any) => {
                               const exRow = excelData.find((r: any) => normalizeKey(r[mapping.excelKey]) === d.key);
-                              const COL_COLORS = ['#14b8a6', '#f97316', '#8b5cf6', '#ef4444', '#0ea5e9', '#f59e0b', '#10b981'];
-                              const colVals: any = { name: d.name.length > 8 ? d.name.slice(0, 8) + '…' : d.name };
+                              const colVals: any = { name: d.name.length > 12 ? d.name.slice(0, 12) + '…' : d.name };
                               regionChartCols.forEach((col: string) => {
                                 colVals[col] = exRow ? parseFloat(exRow[col]) || 0 : 0;
                               });
                               return colVals;
                             })}
-                            margin={{ top: 10, right: 8, left: -22, bottom: 42 }}
+                            margin={{ top: 8, right: 8, left: -18, bottom: 60 }}
+                            barCategoryGap="20%"
+                            barGap={2}
                           >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                            <XAxis dataKey="name" tick={{ fill: '#475569', fontSize: 7 }} angle={-45} textAnchor="end" interval={0} />
-                            <YAxis tick={{ fill: '#475569', fontSize: 7 }} />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', fontSize: '10px' }}
-                              labelStyle={{ color: '#e2e8f0' }}
-                              formatter={(v: any) => v?.toLocaleString()}
+                            <CartesianGrid strokeDasharray="4 4" stroke="#1e293b" vertical={false} opacity={0.7} />
+                            <XAxis
+                              dataKey="name"
+                              tick={{ fill: '#64748b', fontSize: 8, fontWeight: 600 }}
+                              angle={-40}
+                              textAnchor="end"
+                              interval={0}
+                              axisLine={{ stroke: '#334155' }}
+                              tickLine={false}
                             />
-                            {regionChartCols.map((col: string, i: number) => {
-                              const COL_COLORS = ['#14b8a6', '#f97316', '#8b5cf6', '#ef4444', '#0ea5e9', '#f59e0b', '#10b981'];
-                              return (
-                                <Bar key={col} dataKey={col} name={col} fill={COL_COLORS[i % COL_COLORS.length]} radius={[2, 2, 0, 0]} maxBarSize={10}>
-                                  <LabelList dataKey={col} position="top" style={{ fill: '#64748b', fontSize: 6 }} formatter={(v: any) => v > 0 ? v.toLocaleString() : ''} />
-                                </Bar>
-                              );
-                            })}
+                            <YAxis
+                              tick={{ fill: '#64748b', fontSize: 9 }}
+                              tickFormatter={(val) => val >= 1000 ? `${(val / 1000).toFixed(0)}k` : String(val)}
+                              axisLine={false}
+                              tickLine={false}
+                            />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '11px', boxShadow: '0 10px 30px rgba(0,0,0,0.6)', padding: '8px 12px' }}
+                              labelStyle={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '4px', borderBottom: '1px solid #1e293b', paddingBottom: '4px' }}
+                              formatter={(v: any, name: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), name]}
+                              cursor={{ fill: '#1e293b', opacity: 0.4 }}
+                            />
+                            {regionChartCols.map((col: string, i: number) => (
+                              <Bar key={col} dataKey={col} name={col} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[3, 3, 0, 0]} maxBarSize={16} />
+                            ))}
                           </BarChart>
                         </ResponsiveContainer>
-                        {/* Legend */}
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 px-1 pb-1">
-                          {regionChartCols.map((col: string, i: number) => {
-                            const COL_COLORS = ['#14b8a6', '#f97316', '#8b5cf6', '#ef4444', '#0ea5e9', '#f59e0b', '#10b981'];
-                            return (
-                              <div key={col} className="flex items-center gap-1">
-                                <div className="w-2.5 h-2 rounded-sm" style={{ background: COL_COLORS[i % COL_COLORS.length] }} />
-                                <span className="text-[8px] text-slate-500">{col}</span>
-                              </div>
-                            );
-                          })}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1.5 px-1 pt-1 border-t border-slate-800/60 mt-1">
+                          {regionChartCols.map((col: string, i: number) => (
+                            <div key={col} className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                              <span className="text-[10px] font-semibold text-slate-400">{col}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ) : (
                       /* Single series */
-                      <div className="p-2">
-                        <ResponsiveContainer width="100%" height={185}>
+                      <div className="p-3">
+                        <ResponsiveContainer width="100%" height={270}>
                           <BarChart
-                            data={rankedData.slice(0, 14).map((d: any) => ({ name: d.name.length > 8 ? d.name.slice(0, 8) + '…' : d.name, val: d.val, color: d.color }))}
-                            margin={{ top: 14, right: 6, left: -22, bottom: 42 }}
+                            data={rankedData.slice(0, 12).map((d: any) => ({ name: d.name.length > 12 ? d.name.slice(0, 12) + '…' : d.name, val: d.val, color: d.color }))}
+                            margin={{ top: 8, right: 8, left: -18, bottom: 60 }}
+                            barCategoryGap="30%"
                           >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                            <XAxis dataKey="name" tick={{ fill: '#475569', fontSize: 7 }} angle={-45} textAnchor="end" interval={0} />
-                            <YAxis tick={{ fill: '#475569', fontSize: 7 }} />
+                            <CartesianGrid strokeDasharray="4 4" stroke="#1e293b" vertical={false} opacity={0.7} />
+                            <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 8, fontWeight: 600 }} angle={-40} textAnchor="end" interval={0} axisLine={{ stroke: '#334155' }} tickLine={false} />
+                            <YAxis tick={{ fill: '#64748b', fontSize: 9 }} tickFormatter={(val) => val >= 1000 ? `${(val / 1000).toFixed(0)}k` : String(val)} axisLine={false} tickLine={false} />
                             <Tooltip
-                              contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '6px', fontSize: '10px' }}
-                              labelStyle={{ color: '#e2e8f0' }}
-                              formatter={(v: any) => [v?.toLocaleString(), mapping.valueKey]}
+                              contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '11px', boxShadow: '0 10px 30px rgba(0,0,0,0.6)', padding: '8px 12px' }}
+                              labelStyle={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '4px', borderBottom: '1px solid #1e293b', paddingBottom: '4px' }}
+                              formatter={(v: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), mapping.valueKey]}
+                              cursor={{ fill: '#1e293b', opacity: 0.4 }}
                             />
-                            <Bar dataKey="val" radius={[2, 2, 0, 0]}>
-                              {rankedData.slice(0, 14).map((entry: any, index: number) => (
+                            <Bar dataKey="val" radius={[4, 4, 0, 0]} maxBarSize={28}>
+                              {rankedData.slice(0, 12).map((entry: any, index: number) => (
                                 <Cell key={index} fill={entry.color} />
                               ))}
-                              <LabelList dataKey="val" position="top" style={{ fill: '#64748b', fontSize: 6 }} formatter={(v: any) => v?.toLocaleString()} />
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
                     )}
-                  </div>
+
+                    {/* ── Resize handle (bottom-right) ── */}
+                    <div
+                      className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize flex items-center justify-center z-10 group"
+                      title="O'lchamni o'zgartirish"
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        chartResizeRef.current = { startX: e.clientX, startW: chartW };
+                        const onMove = (ev: PointerEvent) => {
+                          if (!chartResizeRef.current) return;
+                          const newW = Math.max(320, Math.min(900, chartResizeRef.current.startW + ev.clientX - chartResizeRef.current.startX));
+                          setChartW(newW);
+                        };
+                        const onUp = () => {
+                          chartResizeRef.current = null;
+                          window.removeEventListener("pointermove", onMove);
+                          window.removeEventListener("pointerup", onUp);
+                        };
+                        window.addEventListener("pointermove", onMove);
+                        window.addEventListener("pointerup", onUp);
+                      }}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" className="opacity-40 group-hover:opacity-90 transition-opacity">
+                        <line x1="2" y1="10" x2="10" y2="2" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
+                        <line x1="5" y1="10" x2="10" y2="5" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
+                        <line x1="8" y1="10" x2="10" y2="8" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                  </motion.div>
                 )}
 
                 {/* ── No data warning ───────────────────────────────── */}
@@ -1322,7 +1610,7 @@ export default function App() {
               </div>
 
               {/* ── STATUS BAR ────────────────────────────────────────── */}
-              {!layoutMode && (
+              {layoutMode === "normal" && (
                 <div className="h-6 bg-[#0f1420] border-t border-slate-800 flex items-center px-3 gap-4 shrink-0 text-[10px] text-slate-600 font-mono">
                   {coord ? (
                     <span className="text-teal-500">
@@ -1341,8 +1629,8 @@ export default function App() {
 
             {/* ── RIGHT PANEL — Attribute Table ────────────────────── */}
             <aside className={cn(
-              "bg-[#151824] shrink-0 transition-all duration-200 z-20 flex flex-col border-l border-slate-800",
-              rightPanelOpen ? "w-[300px]" : "w-10 items-center"
+              "bg-[#151824] shrink-0 transition-all duration-300 ease-out z-20 flex flex-col border-l border-slate-800",
+              rightPanelOpen ? "w-[380px] shadow-[-10px_0_30px_rgba(0,0,0,0.3)]" : "w-10 items-center"
             )}>
               {rightPanelOpen ? (
                 <>
@@ -1353,11 +1641,6 @@ export default function App() {
                         className={cn("flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-all",
                           rightTab === "attributes" ? "bg-slate-700 text-white" : "text-slate-500 hover:text-white")}>
                         <Table2 size={10} />&nbsp;Jadval
-                      </button>
-                      <button onClick={() => setRightTab("chart")}
-                        className={cn("flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-all",
-                          rightTab === "chart" ? "bg-slate-700 text-white" : "text-slate-500 hover:text-white")}>
-                        <BarChart2 size={10} />&nbsp;Grafik
                       </button>
                       <button onClick={() => setRightTab("info")}
                         className={cn("flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-all",
@@ -1456,90 +1739,9 @@ export default function App() {
                         </div>
                       </div>
                     </div>
-                  ) : rightTab === "chart" ? (
-                    /* ── Bar Chart Tab with Multi-Year ────────────────────────────── */
-                    <div className="flex-1 flex flex-col overflow-hidden p-3">
-                      <div className="flex items-center gap-2 mb-3 shrink-0">
-                        <TrendingUp size={12} className="text-teal-400" />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                          {selectedYears.length > 1 ? "Yillar bo'yicha taqqoslash" : "Top 12 hudud"}
-                        </span>
-                      </div>
-                      {selectedYears.length > 1 && Object.keys(chartDataByYear).length > 0 ? (
-                        <div className="flex-1 overflow-y-auto scrollbar-hide bg-slate-800/40 rounded-xl border border-slate-700/40 p-4">
-                          <ResponsiveContainer width="100%" height={Math.max(300, Object.keys(chartDataByYear).length * 30)}>
-                            <BarChart
-                              data={Object.entries(chartDataByYear)
-                                .sort((a, b) => {
-                                  const sumA = Object.values(a[1] as any).reduce((x: any, y: any) => x + y, 0);
-                                  const sumB = Object.values(b[1] as any).reduce((x: any, y: any) => x + y, 0);
-                                  return sumB - sumA;
-                                })
-                                .slice(0, 15)
-                                .map(([key, values]) => {
-                                  const regionName = excelData.find(r => normalizeKey(r[mapping.excelKey]) === key)?.[mapping.excelKey] || key;
-                                  return { name: regionName, ...values };
-                                })}
-                              layout="vertical"
-                              margin={{ top: 5, right: 60, left: 120, bottom: 5 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                              <XAxis type="number" stroke="#64748b" style={{ fontSize: '11px' }} />
-                              <YAxis dataKey="name" type="category" width={115} stroke="#64748b" style={{ fontSize: '10px' }} />
-                              <Tooltip
-                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px' }}
-                                labelStyle={{ color: '#e2e8f0' }}
-                                formatter={(value: any) => value.toLocaleString()}
-                              />
-                              <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '11px' }} />
-                              {selectedYears.map((year, idx) => {
-                                const colors = ['#14b8a6', '#0ea5e9', '#f59e0b', '#ef4444', '#8b5cf6'];
-                                return (
-                                  <Bar key={year} dataKey={year} name={year} fill={colors[idx % colors.length]} radius={[0, 4, 4, 0]}>
-                                    <LabelList dataKey={year} position="right" style={{ fill: '#94a3b8', fontSize: 9 }} formatter={(v: any) => v?.toLocaleString()} />
-                                  </Bar>
-                                );
-                              })}
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      ) : (
-                        <div className="flex-1 overflow-y-auto scrollbar-hide bg-slate-800/40 rounded-xl border border-slate-700/40 p-3">
-                          <ResponsiveContainer width="100%" height={Math.max(300, rankedData.length * 30)}>
-                            <BarChart
-                              data={rankedData.slice(0, 15).map(d => ({
-                                name: d.name.length > 12 ? d.name.slice(0, 12) + '…' : d.name,
-                                val: d.val,
-                                color: d.color
-                              }))}
-                              layout="vertical"
-                              margin={{ top: 5, right: 40, left: 100, bottom: 5 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                              <XAxis type="number" stroke="#64748b" style={{ fontSize: '11px' }} />
-                              <YAxis dataKey="name" type="category" width={95} stroke="#64748b" style={{ fontSize: '10px' }} />
-                              <Tooltip
-                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '6px' }}
-                                labelStyle={{ color: '#e2e8f0' }}
-                                formatter={(v: any) => [v.toLocaleString(), mapping.valueKey]}
-                              />
-                              <Bar dataKey="val" radius={[0, 4, 4, 0]}>
-                                {rankedData.slice(0, 15).map((entry, index) => (
-                                  <Cell key={index} fill={entry.color} />
-                                ))}
-                                <LabelList dataKey="val" position="right" style={{ fill: '#94a3b8', fontSize: 9 }} formatter={(v: any) => v?.toLocaleString()} />
-                              </Bar>
-                            </BarChart>
-                          </ResponsiveContainer>
-                          {rankedData.length === 0 && (
-                            <p className="text-center text-[11px] text-slate-600 py-8">Ma'lumot yo'q</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
                   ) : (
-                    /* ── Feature Info (click on map) ──────────────── */
                     <div className="flex-1 overflow-y-auto p-3 scrollbar-hide">
+                      {/* ── Feature Info (click on map) ──────────────── */}
                       {selectedFeature ? (
                         <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>
                           <div className="bg-slate-800/50 rounded-lg p-3.5 border border-slate-700/40 mb-3">
@@ -1607,20 +1809,349 @@ export default function App() {
                     </div>
                   )}
                 </>
-              ) : (
-                <div className="py-3 flex flex-col items-center gap-2.5">
-                  <button onClick={() => setRightPanelOpen(true)} className="text-slate-600 hover:text-teal-400 p-1 rounded transition-colors">
-                    <ChevronLeft size={13} />
-                  </button>
-                  <Table2 size={12} className="text-slate-700" />
-                  <Database size={12} className="text-slate-700" />
-                </div>
+                ) : (
+                  <div className="py-3 flex flex-col items-center gap-2.5">
+                    <button onClick={() => setRightPanelOpen(true)} className="text-slate-600 hover:text-teal-400 p-1 rounded transition-colors">
+                      <ChevronLeft size={13} />
+                    </button>
+                    <Table2 size={12} className="text-slate-700" />
+                    <Database size={12} className="text-slate-700" />
+                  </div>
               )}
-            </aside>
+                </aside>
 
           </div>
         )}
       </main>
+
+      {/* ══ CHART FULLSCREEN MODAL ═══════════════════════════════════════ */}
+      {chartFullscreen && rankedData.length > 0 && (
+        <div className="fixed inset-0 z-[9998] bg-[#07091280] backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="relative bg-[#0f1624] rounded-2xl border border-slate-700/50 shadow-2xl flex flex-col w-full max-w-5xl max-h-[90vh]">
+            {/* Header */}
+            <div className="px-5 py-3 border-b border-slate-800/60 flex items-center gap-3 shrink-0">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-slate-100">{mapping.valueKey || "Qiymat"}</div>
+                {valueUnit && <div className="text-[11px] text-slate-500">{valueUnit}</div>}
+              </div>
+              <button
+                onClick={() => setChartFullscreen(false)}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"
+                title="Yopish"
+              >
+                <Minimize2 size={14} />
+              </button>
+              <button
+                onClick={() => setChartFullscreen(false)}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
+                title="Yopish"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {/* Chart body */}
+            <div className="flex-1 overflow-auto p-5">
+              {regionChartCols.length > 1 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={420}>
+                    <BarChart
+                      data={rankedData.map((d: any) => {
+                        const exRow = excelData.find((r: any) => normalizeKey(r[mapping.excelKey]) === d.key);
+                        const colVals: any = { name: d.name };
+                        regionChartCols.forEach((col: string) => { colVals[col] = exRow ? parseFloat(exRow[col]) || 0 : 0; });
+                        return colVals;
+                      })}
+                      margin={{ top: 10, right: 20, left: 0, bottom: 80 }}
+                      barCategoryGap="20%" barGap={2}
+                    >
+                      <CartesianGrid strokeDasharray="4 4" stroke="#1e293b" vertical={false} opacity={0.7} />
+                      <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }} angle={-40} textAnchor="end" interval={0} axisLine={{ stroke: '#334155' }} tickLine={false} />
+                      <YAxis tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '12px' }} formatter={(v: any, name: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), name]} cursor={{ fill: '#1e293b', opacity: 0.4 }} />
+                      {regionChartCols.map((col: string, i: number) => (
+                        <Bar key={col} dataKey={col} name={col} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} maxBarSize={20} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap gap-x-4 gap-y-2 px-2 pt-3 border-t border-slate-800/60 mt-1">
+                    {regionChartCols.map((col: string, i: number) => (
+                      <div key={col} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-sm" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                        <span className="text-xs font-semibold text-slate-400">{col}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <ResponsiveContainer width="100%" height={420}>
+                  <BarChart
+                    data={rankedData.map((d: any) => ({ name: d.name, val: d.val, color: d.color }))}
+                    margin={{ top: 10, right: 20, left: 0, bottom: 80 }}
+                    barCategoryGap="30%"
+                  >
+                    <CartesianGrid strokeDasharray="4 4" stroke="#1e293b" vertical={false} opacity={0.7} />
+                    <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }} angle={-40} textAnchor="end" interval={0} axisLine={{ stroke: '#334155' }} tickLine={false} />
+                    <YAxis tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '12px' }} formatter={(v: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), mapping.valueKey]} cursor={{ fill: '#1e293b', opacity: 0.4 }} />
+                    <Bar dataKey="val" radius={[4, 4, 0, 0]} maxBarSize={36}>
+                      {rankedData.map((entry: any, i: number) => <Cell key={i} fill={entry.color} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ KOMPANOVKA MODAL ══════════════════════════════════════════════ */}
+      {showKompanovka && (
+        <div className="fixed inset-0 z-[9999] bg-[#050810]/97 backdrop-blur-md flex flex-col">
+          {/* Header */}
+          <div className="h-11 bg-[#0a0f1c] border-b border-slate-700/60 flex items-center px-4 gap-3 shrink-0 shadow-lg">
+            <div className="flex items-center gap-2">
+              <div className="p-1 bg-sky-500/20 rounded">
+                <Printer size={13} className="text-sky-400" />
+              </div>
+              <span className="text-[11px] font-extrabold text-white uppercase tracking-widest">Kompanovka — Chop Etish Tartibini Sozlash</span>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <button onClick={exportKompPng}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-[10px] font-bold rounded transition-colors shadow">
+                <FileDown size={11} /> PNG
+              </button>
+              <button onClick={exportKompPdf}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold rounded transition-colors shadow">
+                <FileDown size={11} /> PDF
+              </button>
+              <button onClick={() => setShowKompanovka(false)}
+                className="ml-1 p-1.5 rounded text-slate-500 hover:text-white hover:bg-slate-700 transition-colors">
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* ── Left Settings Panel ── */}
+            <div className="w-60 bg-[#0a0f1c] border-r border-slate-800/80 p-4 overflow-y-auto shrink-0 space-y-5">
+              {/* Paper size */}
+              <div>
+                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Qog'oz o'lchami</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(['A4', 'A3'] as const).map(p => (
+                    <button key={p} onClick={() => setKompPaper(p)}
+                      className={cn("py-1.5 rounded text-[10px] font-bold transition-colors border",
+                        kompPaper === p ? "bg-sky-600 border-sky-500 text-white" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white")}>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Orientation */}
+              <div>
+                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Orientatsiya</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {([['landscape', 'Gorizontal'], ['portrait', 'Vertikal']] as const).map(([v, l]) => (
+                    <button key={v} onClick={() => setKompOrient(v)}
+                      className={cn("py-1.5 rounded text-[10px] font-bold transition-colors border",
+                        kompOrient === v ? "bg-sky-600 border-sky-500 text-white" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white")}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Title */}
+              <div>
+                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Sarlavha</div>
+                <input value={kompTitle} onChange={e => setKompTitle(e.target.value)}
+                  placeholder={mapTitle || "Xarita sarlavhasi..."}
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-xs text-slate-200 outline-none focus:border-sky-500 transition-colors" />
+              </div>
+
+              {/* Subtitle */}
+              <div>
+                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Taglavha</div>
+                <input value={kompSubtitle} onChange={e => setKompSubtitle(e.target.value)}
+                  placeholder={mapping.valueKey || "Ko'rsatkich..."}
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-xs text-slate-200 outline-none focus:border-sky-500 transition-colors" />
+              </div>
+
+              {/* Data source */}
+              <div>
+                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Ma'lumot manbai</div>
+                <input value={kompSource} onChange={e => setKompSource(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-xs text-slate-200 outline-none focus:border-sky-500 transition-colors" />
+              </div>
+
+              {/* Elements */}
+              <div>
+                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Elementlar</div>
+                <div className="space-y-2">
+                  {([
+                    [kompShowLegend, setKompShowLegend, 'Izoh (Legend)'],
+                    [kompShowNorth, setKompShowNorth, 'Shimol o\'qi'],
+                    [kompShowScaleBar, setKompShowScaleBar, 'Masshtab chizig\'i'],
+                    [kompShowChart, setKompShowChart, 'Grafik'],
+                  ] as [boolean, React.Dispatch<React.SetStateAction<boolean>>, string][]).map(([val, setter, label]) => (
+                    <label key={label} className="flex items-center gap-2.5 cursor-pointer group">
+                      <div onClick={() => setter(!val)}
+                        className={cn("w-8 h-4 rounded-full transition-colors relative flex items-center",
+                          val ? "bg-sky-600" : "bg-slate-700")}>
+                        <div className={cn("w-3 h-3 rounded-full bg-white shadow absolute transition-all",
+                          val ? "left-4.5" : "left-0.5")} style={{ left: val ? '17px' : '2px' }} />
+                      </div>
+                      <span className="text-[11px] text-slate-400 group-hover:text-slate-200 transition-colors">{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Screenshot refresh */}
+              <div>
+                <button onClick={openKompanovka}
+                  className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] font-bold rounded border border-slate-700 transition-colors">
+                  ↻ Xaritani yangilash
+                </button>
+              </div>
+            </div>
+
+            {/* ── Preview Area ── */}
+            <div className="flex-1 bg-[#070b14] overflow-auto flex items-start justify-center p-8">
+              {/* Paper */}
+              <div
+                ref={kompLayoutRef}
+                className="shadow-2xl border border-slate-600/40 flex overflow-hidden"
+                style={{
+                  width: kompOrient === 'landscape'
+                    ? (kompPaper === 'A3' ? 960 : 680)
+                    : (kompPaper === 'A3' ? 680 : 480),
+                  minHeight: kompOrient === 'landscape'
+                    ? (kompPaper === 'A3' ? 680 : 480)
+                    : (kompPaper === 'A3' ? 960 : 680),
+                  background: '#0d1117',
+                  flexDirection: 'column',
+                  fontFamily: "'Inter', 'Segoe UI', sans-serif",
+                }}
+              >
+                {/* ── Title Block ── */}
+                <div style={{ background: '#0a0f1c', borderBottom: '2px solid #1e3a5f', padding: '14px 20px 10px' }}>
+                  <div style={{ color: '#f1f5f9', fontSize: 18, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+                    {kompTitle || mapTitle || "Xarita"}
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: 10, fontWeight: 600, marginTop: 3, letterSpacing: 0.5 }}>
+                    {kompSubtitle || mapping.valueKey}{valueUnit ? ` · ${valueUnit}` : ''}
+                  </div>
+                </div>
+
+                {/* ── Main Content ── */}
+                <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                  {/* Map area */}
+                  <div style={{ flex: 1, position: 'relative', background: '#0f172a', overflow: 'hidden' }}>
+                    {kompMapImg ? (
+                      <img src={kompMapImg} alt="map" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', fontSize: 12 }}>
+                        Xarita yuklanmoqda…
+                      </div>
+                    )}
+
+                    {/* North Arrow */}
+                    {kompShowNorth && (
+                      <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(10,15,28,0.88)', border: '1px solid #1e3a5f', borderRadius: 8, padding: '6px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                        <Navigation2 size={20} color="#38bdf8" style={{ transform: 'rotate(0deg)' }} />
+                        <span style={{ color: '#38bdf8', fontSize: 8, fontWeight: 800, letterSpacing: 1 }}>N</span>
+                      </div>
+                    )}
+
+                    {/* Scale Bar */}
+                    {kompShowScaleBar && (
+                      <div style={{ position: 'absolute', bottom: 10, left: 12, background: 'rgba(10,15,28,0.85)', border: '1px solid #1e3a5f', borderRadius: 6, padding: '5px 10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                          <div style={{ width: 40, height: 5, background: '#334155', borderRadius: '2px 0 0 2px' }} />
+                          <div style={{ width: 40, height: 5, background: '#94a3b8', borderRadius: '0 2px 2px 0' }} />
+                        </div>
+                        <div style={{ color: '#64748b', fontSize: 8, marginTop: 2, textAlign: 'center', fontWeight: 600 }}>50 km</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right panel: Legend + Chart */}
+                  <div style={{ width: 180, background: '#0a0f1c', borderLeft: '1px solid #1e293b', display: 'flex', flexDirection: 'column', padding: 12, gap: 12, overflowY: 'auto' }}>
+                    {/* Legend */}
+                    {kompShowLegend && (
+                      <div>
+                        <div style={{ color: '#475569', fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+                          Izoh
+                        </div>
+                        <div style={{ color: '#94a3b8', fontSize: 9, marginBottom: 6 }}>
+                          {mapping.valueKey}{valueUnit ? ` (${valueUnit})` : ''}
+                        </div>
+                        {classificationType === 'continuous' ? (
+                          <div>
+                            <div style={{ height: 10, width: '100%', borderRadius: 4, background: `linear-gradient(to right, ${colorScale(stats.min)}, ${colorScale((stats.min + stats.max) / 2)}, ${colorScale(stats.max)})` }} />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, color: '#64748b', fontSize: 8, fontWeight: 600 }}>
+                              <span>{stats.min.toLocaleString()}</span>
+                              <span>{stats.max.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                            {legendLabels.map((l, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ width: 14, height: 10, borderRadius: 2, background: l.color, flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)' }} />
+                                <span style={{ color: '#94a3b8', fontSize: 8, fontFamily: 'monospace' }}>{l.label}</span>
+                              </div>
+                            ))}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, paddingTop: 4, borderTop: '1px solid #1e293b' }}>
+                              <div style={{ width: 14, height: 10, borderRadius: 2, background: '#334155', flexShrink: 0 }} />
+                              <span style={{ color: '#64748b', fontSize: 8 }}>Ma'lumot yo'q</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* All regions ranked chart */}
+                    {kompShowChart && rankedData.length > 0 && (
+                      <div style={{ marginTop: 8, flex: 1, overflowY: 'auto' }}>
+                        <div style={{ color: '#475569', fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, paddingBottom: 4, borderBottom: '1px solid #1e293b' }}>
+                          Barcha hududlar ({rankedData.length})
+                        </div>
+                        {rankedData.map((d: any, i: number) => (
+                          <div key={i} style={{ marginBottom: 6 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2, gap: 4 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                                <span style={{ color: '#475569', fontSize: 7, fontWeight: 700, fontFamily: 'monospace', flexShrink: 0 }}>{i + 1}</span>
+                                <span style={{ color: '#94a3b8', fontSize: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                              </div>
+                              <span style={{ color: '#e2e8f0', fontSize: 8, fontWeight: 700, fontFamily: 'monospace', flexShrink: 0 }}>
+                                {d.val >= 1000 ? `${(d.val / 1000).toFixed(1)}k` : d.val.toLocaleString()}
+                              </span>
+                            </div>
+                            <div style={{ height: 4, background: '#1e293b', borderRadius: 2 }}>
+                              <div style={{ height: '100%', borderRadius: 2, background: d.color, width: `${stats.max > 0 ? (d.val / stats.max) * 100 : 0}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Footer ── */}
+                <div style={{ background: '#0a0f1c', borderTop: '1px solid #1e293b', padding: '7px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ color: '#475569', fontSize: 8, fontWeight: 600 }}>{kompSource}</div>
+                  <div style={{ color: '#334155', fontSize: 8 }}>CRS: EPSG:4326 · WGS 84</div>
+                  <div style={{ color: '#475569', fontSize: 8 }}>{new Date().toLocaleDateString('uz-UZ')}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
