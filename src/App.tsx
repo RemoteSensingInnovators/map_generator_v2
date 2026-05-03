@@ -2388,16 +2388,33 @@ export default function App() {
                   {/* Map area */}
                   <div style={{ flex: 1, position: 'relative', background: '#0f172a', overflow: 'hidden' }}>
                     {kompMapImg ? (
+                      /* motion.div provides x/y transform; drag is driven manually via
+                         raw pointer events so fixed-modal coordinate space never confuses
+                         Framer Motion (the "flying away" bug). */
                       <motion.div
-                        drag={kompMapDrag}
-                        dragMomentum={false}
-                        dragElastic={0}
                         style={{
                           x: kompMapX, y: kompMapY,
                           position: 'absolute', inset: 0,
                           cursor: kompMapDrag ? 'grab' : 'default',
                         }}
-                        whileDrag={{ cursor: 'grabbing' }}
+                        onPointerDown={(e) => {
+                          if (!kompMapDrag) return;
+                          e.currentTarget.style.cursor = 'grabbing';
+                          const startX = e.clientX - kompMapX.get();
+                          const startY = e.clientY - kompMapY.get();
+                          const onMove = (me: PointerEvent) => {
+                            kompMapX.set(me.clientX - startX);
+                            kompMapY.set(me.clientY - startY);
+                          };
+                          const onUp = (me: PointerEvent) => {
+                            (me.target as HTMLElement | null)?.releasePointerCapture?.(me.pointerId);
+                            e.currentTarget.style.cursor = 'grab';
+                            window.removeEventListener('pointermove', onMove);
+                            window.removeEventListener('pointerup', onUp);
+                          };
+                          window.addEventListener('pointermove', onMove);
+                          window.addEventListener('pointerup', onUp);
+                        }}
                       >
                         <img
                           src={kompMapImg}
