@@ -698,18 +698,31 @@ export default function App() {
     // Wait for tiles to load after fitBounds
     await new Promise(r => setTimeout(r, 700));
 
+    // Hide overlays (ignoreElements is unreliable for motion elements).
+    // visibility:hidden hides them but keeps layout — restored right after.
+    const hidden: HTMLElement[] = [];
+    const hide = (sel: string) => {
+      mapRef.current!.querySelectorAll(sel).forEach(el => {
+        (el as HTMLElement).style.visibility = 'hidden';
+        hidden.push(el as HTMLElement);
+      });
+    };
+    hide('[data-html2canvas-ignore]');
+    hide('.leaflet-control-container');
+    await new Promise(r => requestAnimationFrame(r));
+
     try {
       const canvas = await html2canvas(mapRef.current, {
         useCORS: true, allowTaint: true, scale: 1.5,
         logging: false, backgroundColor: '#0f172a',
-        ignoreElements: (el: Element) =>
-          el.hasAttribute('data-html2canvas-ignore') ||
-          el.classList.contains('leaflet-control-container'),
       });
       canvas.toBlob(blob => {
         if (blob) setKompMapImg(URL.createObjectURL(blob));
       }, 'image/jpeg', 0.92);
     } catch { setKompMapImg(""); }
+
+    // Restore visibility
+    hidden.forEach(el => el.style.removeProperty('visibility'));
   };
 
   /* Clone kompLayoutRef outside the fixed/backdrop-blur ancestor so
