@@ -407,6 +407,11 @@ export default function App() {
   const [kompShowChart, setKompShowChart] = useState(false);
   const [kompSource, setKompSource] = useState("Manba: stat.uz");
   const kompLayoutRef = useRef<HTMLDivElement>(null);
+  // Map layer move / zoom
+  const [kompMapDrag, setKompMapDrag] = useState(false);
+  const [kompMapScale, setKompMapScale] = useState(1.0);
+  const kompMapX = useMotionValue(0);
+  const kompMapY = useMotionValue(0);
 
   /* ── localStorage cache helpers ────────────────────────────────────────── */
   const LS_TTL = 60 * 60 * 1000; // 1 soat
@@ -712,7 +717,14 @@ export default function App() {
         logging: false, backgroundColor: '#0f172a',
       });
       canvas.toBlob(blob => {
-        if (blob) setKompMapImg(URL.createObjectURL(blob));
+        if (blob) {
+          setKompMapImg(URL.createObjectURL(blob));
+          // Reset pan/zoom when a fresh snapshot arrives
+          kompMapX.set(0);
+          kompMapY.set(0);
+          setKompMapScale(1.0);
+          setKompMapDrag(false);
+        }
       }, 'image/jpeg', 0.92);
     } catch { setKompMapImg(""); }
   };
@@ -2299,6 +2311,48 @@ export default function App() {
                   ↻ Xaritani yangilash
                 </button>
               </div>
+
+              {/* Layer move / zoom */}
+              <div>
+                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Layer harakati</div>
+
+                {/* Move toggle */}
+                <button
+                  onClick={() => setKompMapDrag(v => !v)}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-1.5 py-2 rounded text-[10px] font-bold border transition-colors mb-2",
+                    kompMapDrag
+                      ? "bg-teal-600 border-teal-500 text-white"
+                      : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"
+                  )}
+                >
+                  <Move size={11} />
+                  {kompMapDrag ? "Harakatlanish yoqiq" : "Harakatlanish"}
+                </button>
+
+                {/* Zoom controls */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setKompMapScale(s => Math.max(0.5, parseFloat((s - 0.1).toFixed(1))))}
+                    className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-[11px] font-bold transition-colors"
+                  >−</button>
+                  <span className="text-[10px] text-slate-400 w-10 text-center font-mono">
+                    {Math.round(kompMapScale * 100)}%
+                  </span>
+                  <button
+                    onClick={() => setKompMapScale(s => Math.min(3.0, parseFloat((s + 0.1).toFixed(1))))}
+                    className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-[11px] font-bold transition-colors"
+                  >+</button>
+                </div>
+
+                {/* Reset */}
+                <button
+                  onClick={() => { kompMapX.set(0); kompMapY.set(0); setKompMapScale(1.0); setKompMapDrag(false); }}
+                  className="w-full mt-1.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-500 hover:text-slate-300 text-[10px] transition-colors"
+                >
+                  ↺ Asl holatga qaytarish
+                </button>
+              </div>
             </div>
 
             {/* ── Preview Area ── */}
@@ -2334,7 +2388,30 @@ export default function App() {
                   {/* Map area */}
                   <div style={{ flex: 1, position: 'relative', background: '#0f172a', overflow: 'hidden' }}>
                     {kompMapImg ? (
-                      <img src={kompMapImg} alt="map" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      <motion.div
+                        drag={kompMapDrag}
+                        dragMomentum={false}
+                        dragElastic={0}
+                        style={{
+                          x: kompMapX, y: kompMapY,
+                          position: 'absolute', inset: 0,
+                          cursor: kompMapDrag ? 'grab' : 'default',
+                        }}
+                        whileDrag={{ cursor: 'grabbing' }}
+                      >
+                        <img
+                          src={kompMapImg}
+                          alt="map"
+                          draggable={false}
+                          style={{
+                            width: '100%', height: '100%',
+                            objectFit: 'cover', display: 'block',
+                            transform: `scale(${kompMapScale})`,
+                            transformOrigin: 'center center',
+                            userSelect: 'none', pointerEvents: 'none',
+                          }}
+                        />
+                      </motion.div>
                     ) : (
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#334155', fontSize: 12 }}>
                         Xarita yuklanmoqda…
