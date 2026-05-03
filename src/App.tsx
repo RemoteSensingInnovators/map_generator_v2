@@ -695,24 +695,19 @@ export default function App() {
       } catch { /* ignore if bounds fail */ }
     }
 
-    // Wait for tiles to load after fitBounds
+    // Wait for tiles to render after fitBounds
     await new Promise(r => setTimeout(r, 700));
 
-    // Hide overlays (ignoreElements is unreliable for motion elements).
-    // visibility:hidden hides them but keeps layout — restored right after.
-    const hidden: HTMLElement[] = [];
-    const hide = (sel: string) => {
-      mapRef.current!.querySelectorAll(sel).forEach(el => {
-        (el as HTMLElement).style.visibility = 'hidden';
-        hidden.push(el as HTMLElement);
-      });
-    };
-    hide('[data-html2canvas-ignore]');
-    hide('.leaflet-control-container');
-    await new Promise(r => requestAnimationFrame(r));
+    /* Capture only .leaflet-container (tiles + GeoJSON layer).
+       All React overlays (legend, chart, title) are siblings of
+       MapContainer in the DOM — capturing the Leaflet element directly
+       excludes them completely without any hide/show gymnastics. */
+    const leafletEl =
+      (mapRef.current.querySelector('.leaflet-container') as HTMLElement | null)
+      ?? mapRef.current;
 
     try {
-      const canvas = await html2canvas(mapRef.current, {
+      const canvas = await html2canvas(leafletEl, {
         useCORS: true, allowTaint: true, scale: 1.5,
         logging: false, backgroundColor: '#0f172a',
       });
@@ -720,9 +715,6 @@ export default function App() {
         if (blob) setKompMapImg(URL.createObjectURL(blob));
       }, 'image/jpeg', 0.92);
     } catch { setKompMapImg(""); }
-
-    // Restore visibility
-    hidden.forEach(el => el.style.removeProperty('visibility'));
   };
 
   /* Clone kompLayoutRef outside the fixed/backdrop-blur ancestor so
