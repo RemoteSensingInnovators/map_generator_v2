@@ -322,8 +322,8 @@ Qisqa, aniq va foydali javob ber. Savol o'zbek tilida bo'lsa — o'zbek tilida, 
     });
   }
 
-  app.listen(PORT, "localhost", () => {
-    console.log(`\n✅  Server ishga tushdi: http://localhost:${PORT}`);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`\n✅  Server ishga tushdi: http://0.0.0.0:${PORT}`);
     console.log(`📦  Kesh papkasi: ${CACHE_DIR}`);
     console.log(`⏱️   Kesh muddati: 24 soat\n`);
   });

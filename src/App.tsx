@@ -13,8 +13,9 @@ import {
   schemeOranges, schemeRdYlGn, schemeSpectral, schemeBrBG, schemeYlGnBu
 } from "d3-scale-chromatic";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, TrendingUp, Crosshair, Database, X, Maximize2, Minimize2, MessageSquare, Send, Bot, Trash2 } from "lucide-react";
+import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, Crosshair, Database, X, Maximize2, Minimize2, MessageSquare, Send, Bot, Trash2, Move, Printer, Navigation2, FileDown } from "lucide-react";
 import { Marker } from "react-leaflet";
+import { motion, useMotionValue, useDragControls } from "motion/react";
 
 /* ── Palettes ─────────────────────────────────────────────────────────────── */
 const COLOR_PALETTES: { [key: string]: { interpolator: any; scheme: any } } = {
@@ -391,6 +392,96 @@ export default function App() {
   const [layoutMode, setLayoutMode] = useState<"normal" | "narrow" | "wide">("normal");
   const [compositionScale, setCompositionScale] = useState<number>(1);
 
+  // Kompanovka state
+  const [showKompanovka, setShowKompanovka] = useState<boolean>(false);
+  const [kompMapImg, setKompMapImg] = useState<string | null>(null);
+  const [kompPaper, setKompPaper] = useState<"A4" | "A3">("A4");
+  const [kompOrient, setKompOrient] = useState<"landscape" | "portrait">("landscape");
+  const [kompTitle, setKompTitle] = useState<string>("");
+  const [kompSubtitle, setKompSubtitle] = useState<string>("");
+  const [kompSource, setKompSource] = useState<string>("Manba: stat.uz");
+  const [kompShowLegend, setKompShowLegend] = useState<boolean>(true);
+  const [kompShowNorth, setKompShowNorth] = useState<boolean>(true);
+  const [kompShowScaleBar, setKompShowScaleBar] = useState<boolean>(true);
+  const [kompShowChart, setKompShowChart] = useState<boolean>(true);
+  const [kompShowCharts, setKompShowCharts] = useState<boolean>(false);
+  const [kompChartDrag, setKompChartDrag] = useState<boolean>(false);
+  const [kompMapDrag, setKompMapDrag] = useState<boolean>(false);
+  const [kompMapScale, setKompMapScale] = useState<number>(1.0);
+  const kompMapX = useMotionValue(0);
+  const kompMapY = useMotionValue(0);
+  const kompLayoutRef = useRef<HTMLDivElement>(null);
+  const kompMapAreaRef = useRef<HTMLDivElement>(null);
+  const [kompMapBounds, setKompMapBounds] = useState<{ north: number; south: number; east: number; west: number } | null>(null);
+  const [kompRegionCenters, setKompRegionCenters] = useState<Record<string, { lat: number; lng: number }>>({});
+  const [kompChartOffsets, setKompChartOffsets] = useState<Record<string, { x: number; y: number }>>({});
+
+  // Kompanovka helpers
+  const projectToKomp = useCallback((lat: number, lng: number) => {
+    if (!kompMapBounds || !kompMapAreaRef.current) return { x: 0, y: 0 };
+    const rect = kompMapAreaRef.current.getBoundingClientRect();
+    const { north, south, east, west } = kompMapBounds;
+    const x = ((lng - west) / (east - west)) * rect.width;
+    const y = ((north - lat) / (north - south)) * rect.height;
+    return { x, y };
+  }, [kompMapBounds]);
+
+  const openKompanovka = useCallback(async () => {
+    setShowKompanovka(true);
+    if (!mapRef.current) return;
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(mapRef.current, {
+        useCORS: true, allowTaint: true, scale: 1.5,
+        ignoreElements: (el: Element) => el.hasAttribute("data-html2canvas-ignore"),
+      });
+      setKompMapImg(canvas.toDataURL("image/jpeg", 0.92));
+    } catch (e) {
+      console.error("html2canvas xatosi:", e);
+    }
+    // Compute bounds & centers from leaflet map
+    if (leafletMapRef.current && geoData) {
+      const map = leafletMapRef.current;
+      const bounds = map.getBounds();
+      setKompMapBounds({ north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() });
+      const centers: Record<string, { lat: number; lng: number }> = {};
+      L.geoJSON(geoData).eachLayer((l: any) => {
+        if (l.feature && l.getBounds) {
+          const key = normalizeKey(l.feature.properties[mapping.geoKey]);
+          centers[key] = l.getBounds().getCenter();
+        }
+      });
+      setKompRegionCenters(centers);
+    }
+  }, [geoData, mapping.geoKey]);
+
+  const exportKompPng = useCallback(async () => {
+    if (!kompLayoutRef.current) return;
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(kompLayoutRef.current, { useCORS: true, allowTaint: true, scale: 2 });
+      const link = document.createElement("a");
+      link.download = `${kompTitle || mapTitle || "xarita"}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } catch (e) { console.error(e); }
+  }, [kompTitle, mapTitle]);
+
+  const exportKompPdf = useCallback(async () => {
+    if (!kompLayoutRef.current) return;
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+      const canvas = await html2canvas(kompLayoutRef.current, { useCORS: true, allowTaint: true, scale: 2 });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const isLandscape = kompOrient === "landscape";
+      const pdf = new jsPDF({ orientation: isLandscape ? "landscape" : "portrait", unit: "mm", format: kompPaper.toLowerCase() as any });
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+      pdf.addImage(imgData, "JPEG", 0, 0, pw, ph);
+      pdf.save(`${kompTitle || mapTitle || "xarita"}.pdf`);
+    } catch (e) { console.error(e); }
+  }, [kompTitle, mapTitle, kompOrient, kompPaper]);
 
 
   /* ── localStorage cache helpers ────────────────────────────────────────── */
@@ -2325,7 +2416,7 @@ export default function App() {
                               <div style={{ background: color, width: fillW, height: 6, borderRadius: 2 }} />
                             </div>
                             <div style={{ color: '#f1f5f9', fontSize: 8, fontWeight: 800, marginTop: 3, textAlign: 'right', fontFamily: 'monospace' }}>
-                              {val >= 1000 ? `${(val/1000).toFixed(1)}k` : val.toLocaleString()}
+                              {val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val.toLocaleString()}
                             </div>
                           </div>
                           <div style={{ width: 5, height: 5, borderRadius: '50%', background: color, margin: '1px auto 0', boxShadow: `0 0 4px ${color}` }} />
