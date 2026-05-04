@@ -1,9 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, GeoJSON, useMap, useMapEvents, ScaleControl } from "react-leaflet";
-import { useMotionValue, useDragControls } from "motion/react";
 import * as L from "leaflet";
 import * as XLSX from "xlsx";
-import html2canvas from "html2canvas";
 import { cn } from "@/src/lib/utils";
 import { scaleSequential, scaleThreshold } from "d3-scale";
 import {
@@ -15,8 +13,7 @@ import {
   schemeOranges, schemeRdYlGn, schemeSpectral, schemeBrBG, schemeYlGnBu
 } from "d3-scale-chromatic";
 import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { motion } from "motion/react";
-import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, TrendingUp, Crosshair, Database, Move, Printer, Compass, X, FileDown, Navigation2, Maximize2, Minimize2, MessageSquare, Send, Bot, Trash2 } from "lucide-react";
+import { Globe, Upload, Map as MapIcon, ZoomIn, ZoomOut, Home, Settings2, ArrowRight, Layers, FileSpreadsheet, Palette, Filter, Eye, BarChart2, FileText, ChevronLeft, ChevronRight, SlidersHorizontal, AlertCircle, Table2, Info, Search, TrendingUp, Crosshair, Database, X, Maximize2, Minimize2, MessageSquare, Send, Bot, Trash2 } from "lucide-react";
 import { Marker } from "react-leaflet";
 
 /* ── Palettes ─────────────────────────────────────────────────────────────── */
@@ -394,24 +391,7 @@ export default function App() {
   const [layoutMode, setLayoutMode] = useState<"normal" | "narrow" | "wide">("normal");
   const [compositionScale, setCompositionScale] = useState<number>(1);
 
-  // Kompanovka (Print Layout)
-  const [showKompanovka, setShowKompanovka] = useState(false);
-  const [kompMapImg, setKompMapImg] = useState<string>("");
-  const [kompTitle, setKompTitle] = useState("");
-  const [kompSubtitle, setKompSubtitle] = useState("");
-  const [kompPaper, setKompPaper] = useState<"A4" | "A3">("A3");
-  const [kompOrient, setKompOrient] = useState<"landscape" | "portrait">("landscape");
-  const [kompShowLegend, setKompShowLegend] = useState(true);
-  const [kompShowNorth, setKompShowNorth] = useState(true);
-  const [kompShowScaleBar, setKompShowScaleBar] = useState(true);
-  const [kompShowChart, setKompShowChart] = useState(false);
-  const [kompSource, setKompSource] = useState("Manba: stat.uz");
-  const kompLayoutRef = useRef<HTMLDivElement>(null);
-  // Map layer move / zoom
-  const [kompMapDrag, setKompMapDrag] = useState(false);
-  const [kompMapScale, setKompMapScale] = useState(1.0);
-  const kompMapX = useMotionValue(0);
-  const kompMapY = useMotionValue(0);
+
 
   /* ── localStorage cache helpers ────────────────────────────────────────── */
   const LS_TTL = 60 * 60 * 1000; // 1 soat
@@ -687,160 +667,9 @@ export default function App() {
 
 
 
-  /* ── Kompanovka helpers ───────────────────────────────────────────────── */
-  const openKompanovka = async () => {
-    setShowKompanovka(true);
-    if (!mapRef.current) return;
 
-    // Fit map to GeoJSON bounds so the export is always centred on Uzbekistan
-    if (leafletMapRef.current && geoData) {
-      try {
-        const bounds = L.geoJSON(geoData).getBounds();
-        leafletMapRef.current.fitBounds(bounds, { animate: false, padding: [8, 8] });
-      } catch { /* ignore if bounds fail */ }
-    }
 
-    // Wait for tiles to render after fitBounds
-    await new Promise(r => setTimeout(r, 700));
 
-    /* Capture only .leaflet-container (tiles + GeoJSON layer).
-       All React overlays (legend, chart, title) are siblings of
-       MapContainer in the DOM — capturing the Leaflet element directly
-       excludes them completely without any hide/show gymnastics. */
-    const leafletEl =
-      (mapRef.current.querySelector('.leaflet-container') as HTMLElement | null)
-      ?? mapRef.current;
-
-    try {
-      const canvas = await html2canvas(leafletEl, {
-        useCORS: true, allowTaint: true, scale: 1.5,
-        logging: false, backgroundColor: '#0f172a',
-      });
-      canvas.toBlob(blob => {
-        if (blob) {
-          setKompMapImg(URL.createObjectURL(blob));
-          // Reset pan/zoom when a fresh snapshot arrives
-          kompMapX.set(0);
-          kompMapY.set(0);
-          setKompMapScale(1.0);
-          setKompMapDrag(false);
-        }
-      }, 'image/jpeg', 0.92);
-    } catch { setKompMapImg(""); }
-  };
-
-  /* Clone kompLayoutRef outside the fixed/backdrop-blur ancestor so
-     html2canvas can capture it cleanly.
-     Also normalises oklch/oklab computed colours → rgb() because
-     html2canvas's CSS parser doesn't support modern colour functions. */
-  const captureKomp = async (): Promise<HTMLCanvasElement> => {
-    const el = kompLayoutRef.current;
-    if (!el) throw new Error('Layout topilmadi');
-    const rect = el.getBoundingClientRect();
-    const w = Math.round(rect.width);
-    const h = Math.round(rect.height);
-
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText =
-      `position:fixed;top:0;left:${-(w + 200)}px;` +
-      `width:${w}px;height:${h}px;overflow:hidden;` +
-      `pointer-events:none;z-index:99999;`;
-
-    const clone = el.cloneNode(true) as HTMLElement;
-    clone.style.cssText += ';position:relative;top:0;left:0;transform:none;';
-    wrapper.appendChild(clone);
-    document.body.appendChild(wrapper);
-
-    // One frame so the clone is laid out and getComputedStyle works
-    await new Promise(r => requestAnimationFrame(r));
-
-    // Normalise oklch/oklab → rgb using a scratch canvas (browser converts for us)
-    const scratch = document.createElement('canvas').getContext('2d')!;
-    const COLOR_PROPS: Array<keyof CSSStyleDeclaration> = [
-      'color', 'backgroundColor',
-      'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
-      'outlineColor', 'textDecorationColor',
-    ];
-    const needsFix = (v: string) =>
-      v && (v.includes('oklab') || v.includes('oklch') || v.includes('color('));
-
-    [clone, ...Array.from(clone.querySelectorAll('*'))].forEach(node => {
-      const htmlEl = node as HTMLElement;
-      try {
-        const cs = getComputedStyle(htmlEl);
-        COLOR_PROPS.forEach(prop => {
-          try {
-            const val = cs[prop] as string;
-            if (!needsFix(val)) return;
-            scratch.fillStyle = val;          // browser normalises → sRGB
-            (htmlEl.style as any)[prop] = scratch.fillStyle;
-          } catch { /* ignore single-prop failures */ }
-        });
-        // Box-shadow may also carry oklch — strip colour part with regex
-        const shadow = cs.boxShadow;
-        if (needsFix(shadow)) htmlEl.style.boxShadow = 'none';
-      } catch { /* ignore element */ }
-    });
-
-    // Wait for any <img> tags (map snapshot) to finish loading
-    await Promise.all(
-      [...clone.querySelectorAll('img')].map(img =>
-        img.complete
-          ? Promise.resolve()
-          : new Promise<void>(r => { img.onload = () => r(); img.onerror = () => r(); })
-      )
-    );
-
-    try {
-      return await html2canvas(clone, {
-        scale: 2, useCORS: true, allowTaint: true,
-        logging: false, backgroundColor: '#0d1117',
-        width: w, height: h,
-        windowWidth: w, windowHeight: h,
-        ignoreElements: (node: Element) => node.hasAttribute('data-html2canvas-ignore'),
-      });
-    } finally {
-      document.body.removeChild(wrapper);
-    }
-  };
-
-  const exportKompPng = async () => {
-    const btn = document.activeElement as HTMLElement;
-    btn?.blur();
-    try {
-      const canvas = await captureKomp();
-      canvas.toBlob(blob => {
-        if (!blob) { alert("PNG yaratishda xatolik"); return; }
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `karta_${kompTitle || 'export'}_${Date.now()}.png`;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 400);
-      }, 'image/png');
-    } catch (err) {
-      alert("PNG yuklab bo'lmadi: " + (err as any)?.message);
-    }
-  };
-
-  const exportKompPdf = async () => {
-    const btn = document.activeElement as HTMLElement;
-    btn?.blur();
-    try {
-      const canvas = await captureKomp();
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-      const { jsPDF } = await import("jspdf");
-      const orient = kompOrient === "landscape" ? "l" : "p";
-      const pdf = new jsPDF({ orientation: orient as any, unit: "mm", format: kompPaper.toLowerCase() as any });
-      const pw = pdf.internal.pageSize.getWidth();
-      const ph = pdf.internal.pageSize.getHeight();
-      pdf.addImage(dataUrl, "JPEG", 0, 0, pw, ph);
-      pdf.save(`karta_${kompTitle || 'export'}_${Date.now()}.pdf`);
-    } catch (err) {
-      alert("PDF yuklab bo'lmadi: " + (err as any)?.message);
-    }
-  };
 
   const CHART_COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#10b981', '#f97316'];
 
@@ -860,7 +689,7 @@ export default function App() {
       valueUnit ? `Birlik: ${valueUnit}` : null,
       stats.max ? `Maksimum: ${stats.max}, Minimum: ${stats.min}` : null,
       selectedFeature ? `Tanlangan viloyat: ${selectedFeature.name}, qiymati: ${selectedFeature.value}` : null,
-      rankedData.length ? `Top 3: ${rankedData.slice(0,3).map((d:any)=>d.name).join(", ")}` : null,
+      rankedData.length ? `Top 3: ${rankedData.slice(0, 3).map((d: any) => d.name).join(", ")}` : null,
     ].filter(Boolean).join("\n");
 
     let replied = false;
@@ -1805,9 +1634,9 @@ export default function App() {
                       }}
                     >
                       <svg width="10" height="10" viewBox="0 0 10 10" className="opacity-40 group-hover:opacity-90 transition-opacity">
-                        <line x1="2" y1="10" x2="10" y2="2" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
-                        <line x1="5" y1="10" x2="10" y2="5" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
-                        <line x1="8" y1="10" x2="10" y2="8" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
+                        <line x1="2" y1="10" x2="10" y2="2" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
+                        <line x1="5" y1="10" x2="10" y2="5" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
+                        <line x1="8" y1="10" x2="10" y2="8" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" />
                       </svg>
                     </div>
                   </motion.div>
@@ -1896,7 +1725,7 @@ export default function App() {
                             </div>
                           </div>
                         )}
-                        {chatMessages.map((msg: {role:string;text:string}, i: number) => (
+                        {chatMessages.map((msg: { role: string; text: string }, i: number) => (
                           <div key={i} className={cn("flex gap-1.5", msg.role === "user" ? "justify-end" : "justify-start")}>
                             {msg.role === "model" && (
                               <div className="w-5 h-5 rounded-full bg-teal-500/20 flex items-center justify-center shrink-0 mt-0.5">
@@ -1917,9 +1746,9 @@ export default function App() {
                               <Bot size={10} className="text-teal-400" />
                             </div>
                             <div className="bg-slate-800 border border-slate-700/40 rounded-xl px-3 py-2 flex gap-1 items-center">
-                              <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{animationDelay:"0ms"}}/>
-                              <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{animationDelay:"150ms"}}/>
-                              <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{animationDelay:"300ms"}}/>
+                              <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                              <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                              <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                             </div>
                           </div>
                         )}
@@ -1929,7 +1758,7 @@ export default function App() {
                       <div className="p-2 border-t border-slate-800 shrink-0">
                         {chatMessages.length > 0 && (
                           <button onClick={() => setChatMessages([])} className="text-[9px] text-slate-700 hover:text-red-400 transition-colors mb-1.5 flex items-center gap-1">
-                            <Trash2 size={9}/> Tozalash
+                            <Trash2 size={9} /> Tozalash
                           </button>
                         )}
                         <div className="flex gap-1.5">
@@ -2104,16 +1933,16 @@ export default function App() {
                     </div>
                   )}
                 </>
-                ) : (
-                  <div className="py-3 flex flex-col items-center gap-2.5">
-                    <button onClick={() => setRightPanelOpen(true)} className="text-slate-600 hover:text-teal-400 p-1 rounded transition-colors">
-                      <ChevronLeft size={13} />
-                    </button>
-                    <Table2 size={12} className="text-slate-700" />
-                    <Database size={12} className="text-slate-700" />
-                  </div>
+              ) : (
+                <div className="py-3 flex flex-col items-center gap-2.5">
+                  <button onClick={() => setRightPanelOpen(true)} className="text-slate-600 hover:text-teal-400 p-1 rounded transition-colors">
+                    <ChevronLeft size={13} />
+                  </button>
+                  <Table2 size={12} className="text-slate-700" />
+                  <Database size={12} className="text-slate-700" />
+                </div>
               )}
-                </aside>
+            </aside>
 
           </div>
         )}
@@ -2161,7 +1990,7 @@ export default function App() {
                     >
                       <CartesianGrid strokeDasharray="4 4" stroke="#1e293b" vertical={false} opacity={0.7} />
                       <XAxis dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 10, fontWeight: 600 }} angle={-40} textAnchor="end" interval={0} axisLine={{ stroke: '#334155' }} tickLine={false} />
-                      <YAxis tick={{ fill: '#e2e8f0', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: '#e2e8f0', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '12px' }} labelStyle={{ color: '#e2e8f0', fontWeight: 700 }} itemStyle={{ color: '#e2e8f0' }} formatter={(v: any, name: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), name]} cursor={{ fill: '#1e293b', opacity: 0.4 }} />
                       {regionChartCols.map((col: string, i: number) => (
                         <Bar key={col} dataKey={col} name={col} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} maxBarSize={20} />
@@ -2186,7 +2015,7 @@ export default function App() {
                   >
                     <CartesianGrid strokeDasharray="4 4" stroke="#1e293b" vertical={false} opacity={0.7} />
                     <XAxis dataKey="name" tick={{ fill: '#e2e8f0', fontSize: 10, fontWeight: 600 }} angle={-40} textAnchor="end" interval={0} axisLine={{ stroke: '#334155' }} tickLine={false} />
-                    <YAxis tick={{ fill: '#e2e8f0', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#e2e8f0', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={{ backgroundColor: '#0b0f1a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '12px' }} labelStyle={{ color: '#e2e8f0', fontWeight: 700 }} itemStyle={{ color: '#e2e8f0' }} formatter={(v: any) => [new Intl.NumberFormat('ru-RU').format(v) + (valueUnit ? ' ' + valueUnit : ''), mapping.valueKey]} cursor={{ fill: '#1e293b', opacity: 0.4 }} />
                     <Bar dataKey="val" radius={[4, 4, 0, 0]} maxBarSize={36}>
                       {rankedData.map((entry: any, i: number) => <Cell key={i} fill={entry.color} />)}
@@ -2289,7 +2118,9 @@ export default function App() {
                     [kompShowLegend, setKompShowLegend, 'Izoh (Legend)'],
                     [kompShowNorth, setKompShowNorth, 'Shimol o\'qi'],
                     [kompShowScaleBar, setKompShowScaleBar, 'Masshtab chizig\'i'],
-                    [kompShowChart, setKompShowChart, 'Grafik'],
+                    [kompShowChart, setKompShowChart, 'Grafik (o\'ng panel)'],
+                    [kompShowCharts, setKompShowCharts, 'Xarita overlay chartlari'],
+                    [kompChartDrag, setKompChartDrag, 'Chartlarni siljitish'],
                   ] as [boolean, React.Dispatch<React.SetStateAction<boolean>>, string][]).map(([val, setter, label]) => (
                     <label key={label} className="flex items-center gap-2.5 cursor-pointer group">
                       <div onClick={() => setter(!val)}
@@ -2386,7 +2217,7 @@ export default function App() {
                 {/* ── Main Content ── */}
                 <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
                   {/* Map area */}
-                  <div style={{ flex: 1, position: 'relative', background: '#0f172a', overflow: 'hidden' }}>
+                  <div ref={kompMapAreaRef} style={{ flex: 1, position: 'relative', background: '#0f172a', overflow: 'hidden' }}>
                     {kompMapImg ? (
                       /* motion.div provides x/y transform; drag is driven manually via
                          raw pointer events so fixed-modal coordinate space never confuses
@@ -2434,6 +2265,73 @@ export default function App() {
                         Xarita yuklanmoqda…
                       </div>
                     )}
+
+                    {/* Chart overlays — positioned in map-area coordinate space */}
+                    {kompShowCharts && kompMapBounds && kompMapAreaRef.current && rankedData.map(({ key, name, val, color }) => {
+                      const center = kompRegionCenters[key];
+                      if (!center) return null;
+                      const base = projectToKomp(center.lat, center.lng);
+                      const off = kompChartOffsets[key] ?? { x: 0, y: 0 };
+                      const cx = base.x + off.x;
+                      const cy = base.y + off.y;
+                      const fillW = Math.max(3, Math.round((val / (stats.max || 1)) * 72));
+                      return (
+                        <div
+                          key={key}
+                          style={{
+                            position: 'absolute',
+                            left: cx,
+                            top: cy,
+                            transform: 'translate(-50%, -100%)',
+                            cursor: kompChartDrag ? 'grab' : 'default',
+                            userSelect: 'none',
+                            pointerEvents: kompChartDrag ? 'auto' : 'none',
+                            zIndex: 10,
+                          }}
+                          onPointerDown={(e) => {
+                            if (!kompChartDrag) return;
+                            e.stopPropagation();
+                            const el = e.currentTarget;
+                            el.style.cursor = 'grabbing';
+                            const startX = e.clientX - (kompChartOffsets[key]?.x ?? 0);
+                            const startY = e.clientY - (kompChartOffsets[key]?.y ?? 0);
+                            const onMove = (me: PointerEvent) => {
+                              setKompChartOffsets(prev => ({
+                                ...prev,
+                                [key]: { x: me.clientX - startX, y: me.clientY - startY },
+                              }));
+                            };
+                            const onUp = () => {
+                              el.style.cursor = 'grab';
+                              window.removeEventListener('pointermove', onMove);
+                              window.removeEventListener('pointerup', onUp);
+                            };
+                            window.addEventListener('pointermove', onMove);
+                            window.addEventListener('pointerup', onUp);
+                          }}
+                        >
+                          <div style={{
+                            background: 'rgba(8,12,24,0.95)',
+                            border: `1.5px solid ${color}`,
+                            borderRadius: 5,
+                            padding: '4px 7px 5px',
+                            minWidth: 80,
+                            boxShadow: `0 2px 8px rgba(0,0,0,0.5)`,
+                          }}>
+                            <div style={{ color: '#cbd5e1', fontSize: 8, fontWeight: 700, letterSpacing: 0.3, marginBottom: 3, whiteSpace: 'nowrap', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {name}
+                            </div>
+                            <div style={{ background: '#1e293b', borderRadius: 2, height: 6, width: 72 }}>
+                              <div style={{ background: color, width: fillW, height: 6, borderRadius: 2 }} />
+                            </div>
+                            <div style={{ color: '#f1f5f9', fontSize: 8, fontWeight: 800, marginTop: 3, textAlign: 'right', fontFamily: 'monospace' }}>
+                              {val >= 1000 ? `${(val/1000).toFixed(1)}k` : val.toLocaleString()}
+                            </div>
+                          </div>
+                          <div style={{ width: 5, height: 5, borderRadius: '50%', background: color, margin: '1px auto 0', boxShadow: `0 0 4px ${color}` }} />
+                        </div>
+                      );
+                    })}
 
                     {/* North Arrow */}
                     {kompShowNorth && (

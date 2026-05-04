@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -v -X POST http://localhost:3000/api/ai-chat -H \"Content-Type: application/json\" -d \"{\\\\\"messages\\\\\":[{\\\\\"role\\\\\":\\\\\"user\\\\\",\\\\\"text\\\\\":\\\\\"salom\\\\\"}]}\")",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(curl -s -X POST http://localhost:3000/api/ai-chat -H \"Content-Type: application/json\" -d \"{\\\\\"messages\\\\\":[{\\\\\"role\\\\\":\\\\\"user\\\\\",\\\\\"text\\\\\":\\\\\"salom\\\\\"}]}\")",
+      "Bash(curl -s -X POST https://openrouter.ai/api/v1/chat/completions -H \"Content-Type: application/json\" -H \"Authorization: Bearer sk-XBhtDvrBg7lVXXeKaYduZUZ7c0Zcmq65JzSKnvqzA250PytH\" -d \"{\\\\\"model\\\\\":\\\\\"google/gemma-3-4b-it:free\\\\\",\\\\\"messages\\\\\":[{\\\\\"role\\\\\":\\\\\"user\\\\\",\\\\\"content\\\\\":\\\\\"salom\\\\\"}]}\")",
+      "Bash(curl -s -X POST https://openrouter.ai/api/v1/chat/completions -H \"Content-Type: application/json\" -H \"Authorization: Bearer sk-or-v1-XBhtDvrBg7lVXXeKaYduZUZ7c0Zcmq65JzSKnvqzA250PytH\" -d \"{\\\\\"model\\\\\":\\\\\"google/gemma-3-4b-it:free\\\\\",\\\\\"messages\\\\\":[{\\\\\"role\\\\\":\\\\\"user\\\\\",\\\\\"content\\\\\":\\\\\"salom, sen kimsan?\\\\\"}]}\")",
+      "Bash(curl -s -X POST https://text.pollinations.ai/openai/chat/completions -H \"Content-Type: application/json\" -d \"{\\\\\"model\\\\\":\\\\\"openai\\\\\",\\\\\"messages\\\\\":[{\\\\\"role\\\\\":\\\\\"user\\\\\",\\\\\"content\\\\\":\\\\\"salom, sen kimsan? qisqa javob ber\\\\\"}]}\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/ai-chat -H \"Content-Type: application/json\" -d \"{\\\\\"messages\\\\\":[{\\\\\"role\\\\\":\\\\\"user\\\\\",\\\\\"text\\\\\":\\\\\"O'zbekistondagi eng katta viloyat qaysi?\\\\\"}]}\")",
+      "Bash(npm install *)",
+      "Bash(git commit -m 'fix: make chart axis labels white \\(#e2e8f0\\) for dark background visibility *)",
+      "Bash(git commit -m 'fix: make tooltip value text white \\(itemStyle color #e2e8f0\\) *)"
+    ]
+  }
+}
